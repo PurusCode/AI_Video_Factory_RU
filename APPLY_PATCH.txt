@@ -1,0 +1,36 @@
+AI Video Factory RU — Trend Discovery Stage 2 patch
+
+Требование: на проекте уже должен быть установлен Trend Discovery Stage 1.
+Этот архив обновляет существующую команду `discover`; он не содержит весь проект.
+
+Содержимое:
+- src/video_farm/discovery.py — новый широкий поисковый модуль;
+- src/video_farm/cli.py — обновлённая CLI-команда `discover` и параметры;
+- tests/test_discovery.py — тесты Discovery v2;
+- docs/TREND_DISCOVERY_STAGE2.md — описание архитектуры и ограничений;
+- README.md — обновлённая документация проекта.
+
+Установка (PowerShell, из корня video-farm):
+1. Сделай резервные копии:
+   Copy-Item src\video_farm\discovery.py src\video_farm\discovery.py.stage1.bak
+   Copy-Item src\video_farm\cli.py src\video_farm\cli.py.stage1.bak
+   Copy-Item README.md README.md.stage1.bak
+2. Распакуй архив в корень проекта с сохранением каталогов и разреши перезапись файлов.
+3. Проверь:
+   .\.venv\Scripts\python.exe -m pytest tests\test_discovery.py -q
+   .\.venv\Scripts\python.exe -m video_farm.cli discover --help
+4. Запусти поиск (используется YOUTUBE_API_KEY из .env):
+   .\.venv\Scripts\python.exe -m video_farm.cli discover --out output\discovery
+5. Открой:
+   output\discovery\discovery.md
+   output\discovery\discovery.json
+
+По умолчанию: 10 направлений × 2 рынка × 2 периода (24 часа и 7 дней), до двух страниц на набор. Лимит search.list — 90 вызовов на запуск. Международная выдача запрашивается без regionCode и с приоритетом английского языка; это не строгий фильтр языка или страны.
+
+Важно:
+- Архив не содержит .env, API-ключей, локальных данных, кэша моделей или пользовательских видео.
+- Не выполняются расчёты скорости просмотров, viral_ratio, engagement ratio, trend score, сентимента или автоматических тематических тегов.
+- `viewCount` — общее число просмотров на момент запроса, не скорость прироста.
+- Включённый mostPopular — дополнительная подборка YouTube, по документации прежде всего для музыки, кино и игр, а не универсальный рейтинг всех тематик.
+- Данные YouTube API нужно обновить или удалить в пределах 30 календарных дней. `discover-cleanup` удаляет просроченные файлы discovery.json и discovery.md. Для ежедневной эксплуатации очистку нужно запускать по расписанию Windows Task Scheduler.
+- Реальный запрос к YouTube API в этом окружении не выполнялся: API-ключ из .env не был предоставлен и в архив не включён.

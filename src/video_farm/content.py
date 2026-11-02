@@ -1,0 +1,765 @@
+from __future__ import annotations
+import datetime as dt, logging, re
+from pathlib import Path
+from typing import Any
+from .common import read_json, write_json, word_count
+from .config import Settings
+from .llm import LLMRouter
+
+log = logging.getLogger(__name__)
+
+FALLBACK_TOPICS = [
+ ("7 бесплатных нейросетей, которые реально экономят время", "Покажем на пяти бытовых задачах, где ИИ помогает, а где мешает.", "подборка", ["нейросети", "бесплатные ИИ", "инструменты"], 1),
+ ("Локальная нейросеть на слабом ПК: 5 честных ограничений", "Без магии: память, скорость, размер модели и реальные компромиссы.", "разбор", ["локальная модель", "слабый компьютер", "Ollama"], 2),
+ ("DeepSeek V4.1 Flash локально: сколько стоит запуск на самом деле", "Разберём разницу между API, открытыми весами и домашним компьютером.", "разбор мифа", ["DeepSeek", "локальный запуск", "стоимость ИИ"], 1),
+ ("ChatGPT против локальной модели: 6 задач и честное сравнение", "Не объявляем победителя заранее — сравниваем качество, приватность и цену.", "сравнение", ["ChatGPT", "локальная LLM", "сравнение"], 2),
+ ("5 ошибок новичка при запуске нейросети на своём ПК", "Сэкономим время на типичных проблемах с памятью, моделями и настройками.", "инструкция", ["нейросеть на ПК", "ошибки", "новичок"], 2),
+ ("Что такое токены в ИИ: простое объяснение на примерах", "Покажем, почему токены не равны словам и как это влияет на счёт.", "объяснение", ["токены", "LLM", "API"], 3),
+ ("6 способов проверить ответ нейросети и не поверить выдумке", "Проверяем источники, числа и цитаты простыми приёмами.", "инструкция", ["галлюцинации ИИ", "проверка фактов", "источники"], 1),
+ ("Ollama для новичка: локальный ИИ за 15 минут без магии", "Разберём системные требования, установку и первую команду.", "гайд", ["Ollama", "локальный ИИ", "установка"], 2),
+ ("4 бесплатных ИИ-инструмента для работы с PDF и документами", "Сравним сценарии использования и риски загрузки личных файлов.", "подборка", ["PDF", "нейросети", "документы"], 3),
+ ("Нужна ли видеокарта для локального ИИ: 5 сценариев", "От текстовых моделей до генерации изображений — где заканчивается CPU.", "разбор", ["GPU", "CPU", "локальный ИИ"], 2),
+ ("Почему нейросеть врёт уверенно: 5 причин простым языком", "Поймём, почему гладкий ответ ещё не означает правду.", "мифы", ["галлюцинации", "LLM", "проверка"], 2),
+ ("Как выбрать первую локальную модель: 6 критериев без хайпа", "Смотрим на память, лицензию, язык, скорость и назначение.", "гайд", ["выбор модели", "квантизация", "LLM"], 3),
+ ("7 задач, которые лучше не отдавать нейросети без проверки", "Личные данные, право, медицина и деньги требуют особой осторожности.", "список", ["безопасность ИИ", "риски", "факты"], 2),
+ ("Квантизация модели: почему 4-битный ИИ занимает меньше места", "Покажем компромисс размера, качества и скорости без сложной математики.", "объяснение", ["квантизация", "4-bit", "память"], 3),
+ ("Как считать цену одного ответа ИИ: простой калькулятор", "Разложим стоимость на входные токены, выход и повторные запросы.", "инструкция", ["цена API", "токены", "расчёт"], 2),
+ ("7 мифов о приватности локальных нейросетей", "Локальный запуск снижает передачу данных, но не отменяет всех рисков.", "мифы", ["приватность", "локальная модель", "безопасность"], 3),
+ ("Можно ли заменить подписку на ИИ бесплатной локальной моделью?", "Сравним задачи, ограничения железа, цену времени и качество.", "сравнение", ["бесплатный ИИ", "подписка", "локальная LLM"], 1),
+ ("Как сделать полезный конспект из длинной статьи с помощью ИИ", "Покажем рабочий запрос и обязательную проверку результата.", "практика", ["промпт", "конспект", "обучение"], 3),
+ ("5 бесплатных источников для изучения нейросетей с нуля", "Планируем обучение так, чтобы не утонуть в рекламных обещаниях.", "подборка", ["обучение ИИ", "новичкам", "ресурсы"], 3),
+ ("Как сравнить две нейросети честно: мини-тест из 10 вопросов", "Один и тот же набор задач помогает увидеть сильные и слабые стороны.", "эксперимент", ["тест LLM", "сравнение моделей", "бенчмарк"], 2),
+]
+
+IDEAS_SYSTEM = "Ты редактор русскоязычного технологического YouTube-канала. Не копируй чужие заголовки. Не придумывай факты и цифры. Верни только JSON-объект."
+
+_TITLE_SUFFIXES = (
+    " — обзор", " — гайд", " — 5 фактов", " — без мифов", " — 5 простых шагов",
+    " — простой разбор", " — разбор для новичка", " — честный разбор для новичка",
+)
+
+def fit_title(title: str) -> str:
+    """Bring a title into the 55–70 character range without cutting mid-word."""
+    title = re.sub(r"\s+", " ", str(title or "")).strip(" \t\r\n—-:;,.!")
+    if len(title) > 70:
+        title = title[:70].rsplit(" ", 1)[0].rstrip(" —-:;,.!")
+    if len(title) < 55:
+        for suffix in sorted(_TITLE_SUFFIXES, key=len):
+            candidate = title + suffix
+            if 55 <= len(candidate) <= 70:
+                return candidate
+        # Handle unusually short model output without leaving the required range.
+        if len(title) < 20:
+            title = f"Что важно знать о теме «{title}»: простое объяснение для новичка"
+            if len(title) > 70:
+                title = title[:70].rsplit(" ", 1)[0].rstrip(" —-:;,.!")
+            if len(title) >= 55:
+                return title
+        suffix = " — честный разбор для новичка"
+        if len(title + suffix) < 55:
+            title = title + " и практические примеры"
+        if len(title + suffix) > 70:
+            title = title[:70 - len(suffix)].rsplit(" ", 1)[0].rstrip(" —-:;,.!")
+        title = title + suffix
+    return title[:70].rstrip(" —-:;,.!")
+
+def _fallback_topic_rows(count: int) -> list[dict[str, Any]]:
+    rows = []
+    for t in FALLBACK_TOPICS:
+        rows.append({"title": fit_title(t[0]), "hook": t[1], "format": t[2], "keywords": t[3], "priority": t[4],
+                     "duration_minutes": 8, "rationale": "Выполнимо без съёмок: озвучка, собственные слайды и лицензируемый B-roll.",
+                     "ai_suitability": 0.95, "fact_risks": []})
+    return rows[:max(15, min(20, count))]
+
+def generate_topics(settings: Settings, analysis_path: Path | None, out_path: Path, count: int = 20) -> dict[str, Any]:
+    count = max(15, min(20, int(count)))
+    analysis = read_json(analysis_path) if analysis_path and analysis_path.exists() else None
+    fallback = _fallback_topic_rows(count)
+    if not settings.providers:
+        payload = {"generated_at": dt.datetime.now(dt.timezone.utc).isoformat(), "source": "local_fallback",
+                   "topics": fallback, "notice": "LLM не настроена; список сформирован встроенным шаблоном."}
+        write_json(out_path, payload)
+        return payload
+    context = "Нет статистики YouTube; используй общие темы и пометь это." if not analysis else str({
+        "summary": analysis.get("summary"), "keywords": analysis.get("top_keywords", [])[:25],
+        "bigrams": analysis.get("top_bigrams", [])[:15],
+        "viral_examples": [{"title": v["title"], "views": v["view_count"], "channel": v["channel_title"], "viral_ratio": v["viral_ratio"]}
+                           for v in analysis.get("videos", [])[:20]]})
+    prompt = f'''Сгенерируй ровно {count} различных тем видео на русском для ниши ИИ и технологий для новичков. Аналитика YouTube: {context}
+Требования: темы без съёмок людей и без демонстрации чужих роликов; заголовки длиной 55–70 символов, живые, с цифрой или эмоциональным крючком; разные форматы (сравнение, разбор, подборка, мифы, инструкция). Не выдумывай тренды или конкретные цифры в обосновании. Для каждой темы поля: title, hook, duration_minutes (7-9), rationale, keywords (массив), format, priority (1 — самый высокий), ai_suitability (0..1), fact_risks (массив). Итоговый JSON строго вида {{"topics":[...]}}.'''
+    try:
+        payload = LLMRouter(settings).json(IDEAS_SYSTEM, prompt, max_tokens=5000)
+        topics = payload.get("topics", []) if isinstance(payload, dict) else []
+        if not topics: raise ValueError("LLM вернула пустой список topics")
+        normalized = []
+        seen_titles: set[str] = set()
+        for i, item in enumerate(topics[:count], 1):
+            if not isinstance(item, dict):
+                continue
+            title = fit_title(str(item.get("title", "")).strip())
+            if not title or title.casefold() in seen_titles: continue
+            seen_titles.add(title.casefold())
+            normalized.append({"title": title, "hook": str(item.get("hook", "")),
+                "duration_minutes": max(7, min(9, int(item.get("duration_minutes", 8)))), "rationale": str(item.get("rationale", "")),
+                "keywords": item.get("keywords", []) if isinstance(item.get("keywords", []), list) else [],
+                "format": str(item.get("format", "разбор")), "priority": int(item.get("priority", i)),
+                "ai_suitability": max(0.0, min(1.0, float(item.get("ai_suitability", 0.9)))),
+                "fact_risks": item.get("fact_risks", []) if isinstance(item.get("fact_risks", []), list) else []})
+        seen = {row["title"].casefold() for row in normalized}
+        for row in fallback:
+            if len(normalized) >= count: break
+            if row["title"].casefold() not in seen:
+                normalized.append(row); seen.add(row["title"].casefold())
+        if len(normalized) < 15: raise ValueError("Не удалось собрать минимум 15 тем")
+        normalized = normalized[:count]
+        for i, row in enumerate(normalized, 1): row["priority"] = i
+        payload = {"generated_at": dt.datetime.now(dt.timezone.utc).isoformat(), "source": "llm",
+                   "analysis_used": bool(analysis), "topics": normalized}
+    except Exception as exc:
+        log.warning("Генерация тем через LLM не удалась; используется fallback: %s", exc)
+        payload = {"generated_at": dt.datetime.now(dt.timezone.utc).isoformat(), "source": "local_fallback",
+                   "topics": fallback, "notice": str(exc)}
+    write_json(out_path, payload)
+    return payload
+
+SCRIPT_SYSTEM = '''Ты опытный сценарист русскоязычного технологического канала. Пиши понятно, разговорно, обращайся на «ты». Не копируй тексты других авторов. Никаких выдуманных точных цифр, неподтверждённых цитат или несуществующих функций. Если факт зависит от версии/даты — добавь ссылку в fact_checks и явно укажи, что его надо перепроверить. В поле voice_text пиши числа, даты, время, проценты, суммы и единицы измерения словами, с грамматически правильными окончаниями и согласованием по контексту; не оставляй цифры там, где они должны произноситься как обычные количественные значения. Исключение — идентификаторы и названия версий/моделей: для них используй общеупотребимое произношение. Текст слайдов отделён от voice_text и может сохранять цифры. Верни только корректный JSON-объект.'''
+
+def _script_prompt(
+    topic: str,
+    research: str,
+    min_words: int = 1100,
+) -> str:
+    # Для коротких тестов используем компактный запрос.
+    if min_words < 800:
+        target_min = max(1, min_words)
+        target_max = max(target_min + 50, int(target_min * 1.2))
+        length_rule = (
+            f"Объём voice_text суммарно: {target_min}–{target_max} слов. "
+            "Это короткий технический тест, не растягивай текст искусственно. "
+            "Хук и CTA могут состоять из одного-двух предложений."
+        )
+    else:
+        length_rule = (
+            "Объём voice_text суммарно: 1100–1500 слов. "
+            "Хук и CTA должны подходить для спокойной речи длительностью "
+            "примерно 20–30 секунд каждый."
+        )
+
+    return f'''Подготовь оригинальный русскоязычный сценарий видео на тему: «{topic}».
+
+Контекст и источники: {research or "Источники не предоставлены. Не выдавай спорные текущие характеристики за проверенные; отмечай то, что нужно перепроверить."}
+
+{length_rule}
+
+Структура:
+- Ровно 7 блоков: один hook, пять section и один cta.
+- Каждый блок: id, kind, heading, voice_text, slides, broll_keywords.
+- В voice_text пиши полноценный связный текст для озвучки, а не тезисы.
+- Обычные числа, даты, время, проценты, суммы и единицы измерения записывай словами с правильным согласованием.
+- Каждый блок должен содержать ровно 3 слайда, у каждого должны быть непустые title и body.
+- Тип слайда: text, metric, comparison, quote, list, bar_chart, progress, photo, split или storyboard.
+- Поля каждого слайда: type, title, body, metric, photo_keyword, items, source.
+- Текст title и body должен быть кратким, конкретным и подходить для отображения на экране. Не выдумывай цифры.
+- Каждый блок должен содержать 2–5 коротких поисковых запросов для B-roll.
+- ВАЖНО: broll_keywords и photo_keyword — только английские слова латиницей. Не используй китайский, кириллицу или другие письменности в поисковых запросах.
+- Заполни title, topic, description_summary, hashtags, target_duration_minutes, fact_checks и music_policy на верхнем уровне.
+- Заголовок видео — 55–70 символов.
+- fact_checks — массив объектов с полями claim, source_url и status="verify_before_publish".
+- Музыка не используется без подтверждённой лицензии.
+- Не копируй чужие сценарии, не выдумывай точные цифры, цитаты или источники.
+- Верни только корректный JSON, без Markdown.
+
+Форма JSON:
+{{
+  "title": "...",
+  "topic": "...",
+  "description_summary": "...",
+  "hashtags": [],
+  "target_duration_minutes": 8,
+  "fact_checks": [],
+  "music_policy": "...",
+  "blocks": []
+}}'''
+
+def validate_script(script: dict[str, Any], *, min_words: int = 1100) -> list[str]:
+    """Проверяет структуру и базовые требования к сценарию.
+
+    Ошибки структуры и объёма затем блокируют сохранение как обычного сценария.
+    Менее критичные замечания по длине текста слайдов остаются предупреждениями.
+    """
+    warnings: list[str] = []
+
+    if not isinstance(script, dict):
+        return ["Корень сценария должен быть JSON-объектом"]
+
+    title = str(script.get("title", "")).strip()
+    title_len = len(title)
+    if not title:
+        warnings.append("Заголовок видео отсутствует")
+    elif not 55 <= title_len <= 70:
+        warnings.append(
+            f"Заголовок видео должен содержать 55–70 символов, сейчас {title_len}"
+        )
+
+    blocks = script.get("blocks")
+    if not isinstance(blocks, list):
+        warnings.append("Поле blocks должно быть списком")
+        return warnings
+
+    if len(blocks) != 7:
+        warnings.append(
+            f"Ожидалось ровно 7 блоков (хук + 5 секций + CTA), получено {len(blocks)}"
+        )
+
+    voice_parts = [
+        str(block.get("voice_text", ""))
+        for block in blocks
+        if isinstance(block, dict)
+    ]
+    count = word_count(" ".join(voice_parts))
+    minimum = max(1, int(min_words))
+    if minimum < 800:
+        maximum = max(minimum + 50, int(minimum * 1.2))
+    else:
+        # Для штатной цели 1100 это сохраняет прежний диапазон 1100–1500.
+        maximum = max(minimum + 50, int(minimum * 1500 / 1100))
+
+    if count < minimum:
+        warnings.append(f"Мало слов: {count}; требуется минимум {minimum}")
+    if count > maximum:
+        warnings.append(f"Слишком много слов: {count}; допустимый максимум {maximum}")
+
+    expected_kinds = ["hook", "section", "section", "section", "section", "section", "cta"]
+    if not blocks or not isinstance(blocks[0], dict) or blocks[0].get("kind") != "hook":
+        warnings.append("Первый блок должен иметь kind=hook")
+    if not blocks or not isinstance(blocks[-1], dict) or blocks[-1].get("kind") != "cta":
+        warnings.append("Последний блок должен иметь kind=cta")
+
+    allowed_slide_types = {
+        "text", "metric", "comparison", "quote", "list", "bar_chart",
+        "progress", "photo", "split", "storyboard",
+    }
+    long_slide_types = {"list", "storyboard", "comparison", "bar_chart", "progress", "split"}
+
+    for i, block in enumerate(blocks, 1):
+        if not isinstance(block, dict):
+            warnings.append(f"Блок {i} должен быть JSON-объектом")
+            continue
+
+        if i <= len(expected_kinds) and block.get("kind") != expected_kinds[i - 1]:
+            warnings.append(
+                f"Блок {i}: ожидался kind={expected_kinds[i - 1]}, получен {block.get('kind')}"
+            )
+
+        if not str(block.get("heading", "")).strip():
+            warnings.append(f"Блок {i}: heading отсутствует")
+        if not str(block.get("voice_text", "")).strip():
+            warnings.append(f"Блок {i}: voice_text пустой")
+
+        slides = block.get("slides", [])
+        if not isinstance(slides, list):
+            warnings.append(f"Блок {i}: slides должно быть списком")
+            slides = []
+        if len(slides) != 3:
+            warnings.append(f"Блок {i}: slides должно быть ровно 3, сейчас {len(slides)}")
+
+        for j, slide in enumerate(slides, 1):
+            if not isinstance(slide, dict):
+                warnings.append(f"Блок {i}, слайд {j}: слайд должен быть JSON-объектом")
+                continue
+
+            slide_title = str(slide.get("title", "")).strip()
+            body = str(slide.get("body", "")).strip()
+            slide_type = str(slide.get("type", "text")).strip().lower()
+
+            raw_items = slide.get("items", [])
+            item_count = 0
+            if isinstance(raw_items, list):
+                for item in raw_items:
+                    if isinstance(item, dict):
+                        if any(
+                            str(item.get(key) or "").strip()
+                            for key in ("item", "label", "value", "text")
+                        ):
+                            item_count += 1
+                    elif isinstance(item, (str, int, float)) and not isinstance(item, bool):
+                        if str(item).strip():
+                            item_count += 1
+
+            has_native_content = (
+                (slide_type in {"list", "storyboard"} and item_count >= 1)
+                or (slide_type == "comparison" and item_count >= 2)
+                or (
+                    slide_type in {"metric", "progress"}
+                    and bool(str(slide.get("metric", "")).strip())
+                )
+            )
+
+            if not slide_title:
+                warnings.append(f"Блок {i}, слайд {j}: отсутствует title")
+            if not body and not has_native_content:
+                warnings.append(f"Блок {i}, слайд {j}: отсутствует body")
+            if len(slide_title) > 70:
+                warnings.append(f"Блок {i}, слайд {j}: заголовок длиннее 70 символов")
+
+            if slide_type not in allowed_slide_types:
+                warnings.append(f"Блок {i}, слайд {j}: type недопустим ({slide_type})")
+
+            label = " ".join(part for part in (slide_title, body) if part)
+            wc = word_count(label)
+            if wc > 12:
+                warnings.append(f"Блок {i}, слайд {j}: много текста ({wc} слов), сократите")
+            if slide_type not in long_slide_types and wc > 7:
+                warnings.append(
+                    f"Блок {i}, слайд {j}: короткий слайд должен укладываться в 3–7 слов (сейчас {wc})"
+                )
+
+            photo_keyword = str(slide.get("photo_keyword", "")).strip()
+            if photo_keyword and (
+                not photo_keyword.isascii()
+                or not any(char.isalpha() for char in photo_keyword)
+            ):
+                warnings.append(
+                    f"Блок {i}, слайд {j}: photo_keyword содержит неанглийские символы"
+                )
+
+        keywords = block.get("broll_keywords", [])
+        if not isinstance(keywords, list):
+            warnings.append(f"Блок {i}: broll_keywords должно быть списком из 2–5 запросов")
+            continue
+        if not 2 <= len(keywords) <= 5:
+            warnings.append(f"Блок {i}: broll_keywords должно быть 2–5, сейчас {len(keywords)}")
+
+        for j, keyword in enumerate(keywords, 1):
+            if (
+                not isinstance(keyword, str)
+                or not keyword.strip()
+                or not keyword.isascii()
+                or not any(char.isalpha() for char in keyword)
+            ):
+                warnings.append(
+                    f"Блок {i}: B-roll запрос {j} пустой или не на английском"
+                )
+
+    return warnings
+
+def generate_script(settings: Settings, topic: str, out_path: Path, research_path: Path | None = None,
+                    min_words: int = 1100) -> dict[str, Any]:
+    research = ""
+    if research_path and research_path.exists():
+        research = research_path.read_text(encoding="utf-8")[:14000]
+    if not settings.providers:
+        raise RuntimeError("Сценарий требует LLM. Укажи локальный Ollama или OpenAI-compatible LLM в .env. Для примера есть examples/deepseek_v4_1_flash/script.json.")
+    router = LLMRouter(settings)
+    payload = router.json(
+    SCRIPT_SYSTEM,
+    _script_prompt(topic, research, min_words),
+    max_tokens=9500,
+    temperature=0.55,
+    )
+    if not isinstance(payload, dict) or not isinstance(payload.get("blocks"), list):
+        raise ValueError("Ответ LLM не соответствует схеме: отсутствует массив blocks")
+    payload.setdefault("topic", topic)
+    payload.setdefault("title", topic)
+    raw_title = str(payload.get("title") or topic).strip()
+    payload["title"] = fit_title(raw_title)
+    payload.setdefault("target_duration_minutes", 8)
+    payload.setdefault("description_summary", "Авторский разбор темы. Проверяй характеристики и цифры по источникам перед публикацией.")
+    payload.setdefault("hashtags", ["#ИИ", "#нейросети", "#технологии"])
+    payload.setdefault("fact_checks", [])
+    payload.setdefault("music_policy", "Фоновая музыка не используется без подтверждённой коммерческой лицензии.")
+    def _slide_item_text(value: Any) -> str:
+        if isinstance(value, dict):
+            label = str(
+                value.get("item") or value.get("label")
+                or value.get("text") or ""
+            ).strip()
+            detail = str(value.get("value") or "").strip()
+            if label and detail:
+                return f"{label}: {detail}"
+            return label or detail
+        if isinstance(value, (str, int, float)) and not isinstance(value, bool):
+            return str(value).strip()
+        return ""
+
+    for i, b in enumerate(payload["blocks"], 1):
+        if not isinstance(b, dict):
+            raise ValueError(f"Блок {i} в ответе LLM должен быть JSON-объектом")
+        b.setdefault("id", f"block_{i:02d}")
+        b.setdefault("kind", "section")
+        b.setdefault("heading", f"Часть {i}")
+        b.setdefault("voice_text", "")
+        b.setdefault("slides", [])
+        b.setdefault("broll_keywords", [])
+        raw_slides = b.get("slides", [])
+        if not isinstance(raw_slides, list):
+            raw_slides = []
+        b["slides"] = [dict(s) for s in raw_slides if isinstance(s, dict)]
+        for s in b["slides"]:
+            for k in ("type", "title", "body", "metric", "photo_keyword", "source"):
+                s[k] = str(s.get(k) or "").strip()
+
+            slide_type = str(s.get("type", "text")).strip().lower()
+            s["type"] = slide_type
+
+            raw_items = s.get("items", [])
+            if not isinstance(raw_items, list):
+                raw_items = []
+
+            normalized_items = []
+            for item in raw_items:
+                item_text = _slide_item_text(item)
+                if item_text:
+                    normalized_items.append(item_text)
+            s["items"] = normalized_items
+
+            if not s["body"]:
+                if slide_type == "quote" and normalized_items:
+                    parts = [
+                        item.rstrip(".!?").strip()
+                        for item in normalized_items
+                        if item.strip()
+                    ]
+                    if parts:
+                        s["body"] = ". ".join(parts) + "."
+                elif slide_type == "split" and normalized_items:
+                    s["body"] = "; ".join(normalized_items)
+        raw_keywords = b.get("broll_keywords", [])
+        if not isinstance(raw_keywords, list):
+            raw_keywords = []
+        b["broll_keywords"] = [str(x) for x in raw_keywords if str(x).strip()][:5]
+    count = word_count(" ".join(str(b.get("voice_text", "")) for b in payload["blocks"]))
+    if count < min_words:
+        expand_min = min_words
+        expand_max = max(expand_min + 50, int(expand_min * 1.2))
+        expand_target = min(expand_max - 20, expand_min + 10)
+
+        # Передаём модели только текстовые блоки, без слайдов и метаданных.
+        compact_blocks = [
+            {
+                "id": str(b.get("id")),
+                "kind": b.get("kind", "section"),
+                "heading": b.get("heading", ""),
+                "voice_text": b.get("voice_text", ""),
+            }
+            for b in payload["blocks"]
+        ]
+
+        expand_prompt = f"""
+    Доработай текст сценария на тему:
+    «{topic}»
+
+    Сейчас в сценарии {count} слов.
+    Требуемый суммарный объём voice_text: {expand_min}–{expand_max} слов.
+    Target length: about {expand_target} words. Never exceed {expand_max} words.
+    Remove repetitions rather than adding unsupported facts.
+
+    Верни только JSON следующей структуры:
+    {{
+    "blocks": [
+        {{
+        "id": "исходный идентификатор",
+        "voice_text": "полный текст блока для озвучки"
+        }}
+    ]
+    }}
+
+    Правила:
+    - Сохрани все исходные идентификаторы блоков и их порядок.
+    - Верни ровно столько блоков, сколько было во входных данных.
+    - Сохрани смысл исходного текста, но существенно расширь объяснения.
+    - Не повторяй одну мысль разными словами ради объёма.
+    - Добавляй понятные примеры и практические рекомендации.
+    - Не выдумывай проверенные факты, точные цифры и несуществующие источники.
+    - Сохраняй назначение блоков: hook, section и cta.
+    - Пиши естественным русским языком.
+    - Все числа для обычного произношения записывай словами с правильными окончаниями.
+    - Не возвращай слайды, заголовок видео, хештеги и другие поля.
+
+    Входные блоки:
+    {__import__('json').dumps(compact_blocks, ensure_ascii=False)}
+    """
+
+        try:
+            expanded = router.json(
+                SCRIPT_SYSTEM,
+                expand_prompt,
+                max_tokens=3500,
+                temperature=0.35,
+            )
+
+            expanded_blocks = (
+                expanded.get("blocks", [])
+                if isinstance(expanded, dict)
+                else []
+            )
+
+            expected_ids = [
+                str(b.get("id"))
+                for b in payload["blocks"]
+            ]
+
+            received_ids = [
+                str(b.get("id"))
+                for b in expanded_blocks
+                if isinstance(b, dict)
+            ]
+
+            valid_structure = (
+                len(expanded_blocks) == len(expected_ids)
+                and received_ids == expected_ids
+                and all(
+                    isinstance(b.get("voice_text"), str)
+                    and b["voice_text"].strip()
+                    for b in expanded_blocks
+                )
+            )
+
+            if valid_structure:
+                expanded_count = word_count(
+                    " ".join(
+                        b["voice_text"]
+                        for b in expanded_blocks
+                    )
+                )
+
+                if expanded_count < expand_min and expanded_count > count:
+                    retry_input = [
+                        {
+                            "id": str(b.get("id")),
+                            "voice_text": b["voice_text"],
+                        }
+                        for b in expanded_blocks
+                        if isinstance(b, dict)
+                    ]
+
+                    retry_prompt = f"""
+Expand the following Russian-language narration.
+
+Topic: {topic}
+Current total: {expanded_count} words.
+Required final range: {expand_min}-{expand_max} words.
+Target: about {expand_target} words. Never stop below {expand_min} words.
+
+Preserve every block ID, order, meaning, and role.
+Keep the narration in natural Russian.
+Add useful explanations, transitions, and practical examples.
+Do not repeat the same idea in different words.
+Do not invent statistics, exact figures, quotations, or sources.
+Return only JSON in this form:
+{{"blocks": [{{"id": "original id", "voice_text": "complete Russian text"}}]}}
+
+Input blocks:
+{__import__('json').dumps(retry_input, ensure_ascii=False)}
+"""
+
+                    try:
+                        retry_result = router.json(
+                            SCRIPT_SYSTEM,
+                            retry_prompt,
+                            max_tokens=3500,
+                            temperature=0.2,
+                        )
+
+                        retry_blocks = (
+                            retry_result.get("blocks", [])
+                            if isinstance(retry_result, dict)
+                            else []
+                        )
+
+                        retry_valid = (
+                            isinstance(retry_blocks, list)
+                            and len(retry_blocks) == len(expected_ids)
+                            and all(isinstance(b, dict) for b in retry_blocks)
+                            and [
+                                str(b.get("id")) for b in retry_blocks
+                            ] == expected_ids
+                            and all(
+                                isinstance(b.get("voice_text"), str)
+                                and b["voice_text"].strip()
+                                for b in retry_blocks
+                            )
+                        )
+
+                        if retry_valid:
+                            retry_count = word_count(
+                                " ".join(
+                                    b["voice_text"] for b in retry_blocks
+                                )
+                            )
+
+                            if retry_count > expanded_count:
+                                expanded_blocks = retry_blocks
+                                expanded_count = retry_count
+                                log.info(
+                                    "Second expansion produced %s words",
+                                    retry_count,
+                                )
+                            else:
+                                log.warning(
+                                    "Second expansion did not increase the word count: %s",
+                                    retry_count,
+                                )
+                        else:
+                            log.warning(
+                                "Second expansion returned an invalid block structure."
+                            )
+
+                    except Exception as exc:
+                        log.warning("Second expansion failed: %s", exc)
+
+                if expanded_count > expand_max:
+                    shorten_prompt = f"""
+Shorten this Russian-language script about: {topic}
+
+Current word count: {expanded_count}.
+Required range: {expand_min}-{expand_max} words.
+Target: around {expand_target} words. Do not exceed the maximum.
+
+Return JSON only in this form:
+{{"blocks": [{{"id": "original id", "voice_text": "shortened text"}}]}}
+
+Preserve every block ID, order, purpose, and meaning.
+Remove repetition and secondary wording. Do not invent facts,
+statistics, figures, or sources. Return no slides or metadata.
+
+Input blocks:
+{__import__('json').dumps([
+    {"id": str(b.get("id")), "voice_text": b.get("voice_text", "")}
+    for b in expanded_blocks if isinstance(b, dict)
+], ensure_ascii=False)}
+"""
+                    try:
+                        shortened = router.json(
+                            SCRIPT_SYSTEM,
+                            shorten_prompt,
+                            max_tokens=3500,
+                            temperature=0.2,
+                        )
+                        shortened_blocks = (
+                            shortened.get("blocks", [])
+                            if isinstance(shortened, dict)
+                            else []
+                        )
+
+                        shortened_valid = (
+                            isinstance(shortened_blocks, list)
+                            and len(shortened_blocks) == len(expected_ids)
+                            and all(isinstance(b, dict) for b in shortened_blocks)
+                            and [
+                                str(b.get("id")) for b in shortened_blocks
+                            ] == expected_ids
+                            and all(
+                                isinstance(b.get("voice_text"), str)
+                                and b["voice_text"].strip()
+                                for b in shortened_blocks
+                            )
+                        )
+
+                        if shortened_valid:
+                            shortened_count = word_count(
+                                " ".join(
+                                    b["voice_text"] for b in shortened_blocks
+                                )
+                            )
+                            if expand_min <= shortened_count <= expand_max:
+                                expanded_blocks = shortened_blocks
+                                expanded_count = shortened_count
+                                log.info(
+                                    "Shortening accepted: %s words",
+                                    shortened_count,
+                                )
+                            else:
+                                log.warning(
+                                    "Shortening rejected: %s words; allowed range %s-%s.",
+                                    shortened_count,
+                                    expand_min,
+                                    expand_max,
+                                )
+                        else:
+                            log.warning(
+                                "Shortening rejected: invalid block structure."
+                            )
+                    except Exception as exc:
+                        log.warning("Shortening failed: %s", exc)
+
+                if min_words <= expanded_count <= expand_max and expanded_count > count:
+                    # Меняем только voice_text.
+                    # Исходные слайды и метаданные остаются нетронутыми.
+                    for original, updated in zip(
+                        payload["blocks"],
+                        expanded_blocks,
+                    ):
+                        original["voice_text"] = updated["voice_text"]
+
+                    count = expanded_count
+                    log.info(
+                        "Расширение принято: %s слов",
+                        expanded_count,
+                    )
+                else:
+                    log.warning(
+                        "Расширение отклонено: %s слов; "
+                        "требуется минимум %s. "
+                        "Сохранён исходный вариант.",
+                        expanded_count,
+                        min_words,
+                    )
+            else:
+                log.warning(
+                    "Расширение отклонено: модель вернула "
+                    "неполный список блоков или неверные идентификаторы."
+                )
+
+        except Exception as exc:
+            log.warning(
+                "Расширение сценария не удалось: %s",
+                exc,
+            )
+    payload["word_count"] = word_count(" ".join(str(b.get("voice_text", "")) for b in payload.get("blocks", []) if isinstance(b, dict)))
+    payload["generated_at"] = dt.datetime.now(dt.timezone.utc).isoformat()
+    payload["quality_warnings"] = validate_script(payload, min_words=min_words)
+
+    # Структурные ошибки и несоответствие объёма блокируют публикационный JSON.
+    # Черновик сохраняется отдельно для диагностики, а исходный out_path не перезаписывается.
+    critical_markers = (
+        "Заголовок видео отсутствует",
+        "Заголовок видео должен содержать",
+        "Поле blocks должно быть списком",
+        "Ожидалось ровно 7 блоков",
+        "Мало слов:",
+        "Слишком много слов:",
+        "Первый блок должен иметь kind=hook",
+        "Последний блок должен иметь kind=cta",
+        "ожидался kind=",
+        "должен быть JSON-объектом",
+        "heading отсутствует",
+        "voice_text пустой",
+        "slides должно быть списком",
+        "slides должно быть ровно 3",
+        "слайд должен быть JSON-объектом",
+        "отсутствует title",
+        "отсутствует body",
+        "type недопустим",
+        "broll_keywords должно быть списком",
+        "broll_keywords должно быть 2–5",
+        "пустой или не на английском",
+        "photo_keyword содержит неанглийские символы",
+    )
+    critical_warnings = [
+        warning
+        for warning in payload["quality_warnings"]
+        if any(marker in warning for marker in critical_markers)
+    ]
+    if critical_warnings:
+        rejected_path = out_path.with_name(f"{out_path.stem}.rejected{out_path.suffix}")
+        rejected_path.parent.mkdir(parents=True, exist_ok=True)
+        write_json(rejected_path, payload)
+        details = "\n".join(f"- {warning}" for warning in critical_warnings)
+        raise ValueError(
+            "Сценарий не прошёл обязательную проверку. "
+            f"Черновик сохранён отдельно: {rejected_path}\n{details}"
+        )
+
+    write_json(out_path, payload)
+    return payload

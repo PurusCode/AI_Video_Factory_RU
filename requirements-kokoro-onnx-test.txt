@@ -1,0 +1,13 @@
+# Isolated evaluation-only requirements for Kokoro-ru v2 ONNX.
+# Do not install into the main video-farm .venv until evaluation is accepted.
+numpy>=1.26
+onnxruntime>=1.20
+soundfile>=0.13
+huggingface_hub>=0.30
+ruaccent>=1.0
+misaki>=0.9.4
+phonemizer-fork>=3.3.2
+espeakng-loader>=0.2.4
+
+# Russian number/date/unit normalization shared with the Piper CLI
+num2words>=0.5.14,<0.6

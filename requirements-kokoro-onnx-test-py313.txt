@@ -1,0 +1,14 @@
+# Evaluation-only Kokoro-ru v2 ONNX runner for Python 3.13 on Windows.
+# PyPI's misaki 0.9.4 release declares Python <3.13; upstream main declares <3.14.
+# Use only for the isolated benchmark, not as a production dependency until pinned/reviewed.
+numpy>=1.26
+onnxruntime>=1.20
+soundfile>=0.13
+huggingface_hub>=0.30
+ruaccent>=1.0
+misaki @ https://github.com/hexgrad/misaki/archive/refs/heads/main.zip
+phonemizer-fork>=3.3.2
+espeakng-loader>=0.2.4
+
+# Russian number/date/unit normalization shared with the Piper CLI
+num2words>=0.5.14,<0.6

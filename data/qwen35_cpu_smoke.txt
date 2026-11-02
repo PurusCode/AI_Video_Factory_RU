@@ -1,0 +1,320 @@
+﻿Thinking...
+Thinking Process:
+
+1.  **Analyze the Request:**
+    *   **Topic:** Backup files on a home computer (╤А╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╤Д[1D[K
+╤Д╨░╨╣╨╗╨╛╨▓ ╨╜╨░ ╨┤╨╛╨╝╨░╤И╨╜╨╡╨╝ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡).
+    *   **Output Format:** A single valid JSON object, no Markdown, no expl[4D[K
+explanations.
+    *   **Structure:** One block with fields: `id`, `kind`, `heading`, `voi[4D[K
+`voice_text`, `slides`, `broll_keywords`.
+    *   **Constraints:**
+        *   `kind` must be "section".
+        *   `voice_text`: Coherent Russian text, approx 120 words.
+        *   `slides`: Array of exactly two objects.
+        *   Slide fields: `type`, `title`, `body`, `metric`, `photo_keyword[14D[K
+`photo_keyword`, `items`, `source`. All must be non-empty (except maybe `ty[3D[K
+`type` and `source` which need to fit the schema, but prompt says "╨г ╨║╨░╨╢╨┤╨╛╨│[6D[K
+╨║╨░╨╢╨┤╨╛╨│╨╛ ╤Б╨╗╨░╨╣╨┤╨░ ╨┤╨╛╨╗╨╢╨╜╤Л ╨▒╤Л╤В╤М ╨╜╨╡╨┐╤Г╤Б╤В╤Л╨╡ ╨┐╨╛╨╗╤П title ╨╕ body" - implying all field[5D[K
+fields in slide object should generally exist, specifically `title` and `bo[3D[K
+`body` cannot be empty. To be safe, I will fill others too).
+        *   Slide sub-fields: `type`, `title`, `body`, `metric`, `photo_key[10D[K
+`photo_keyword`, `items`, `source`.
+        *   `broll_keywords`: Array of two short English search queries.
+        *   `photo_keyword` (if filled): Must be in English.
+        *   No Chinese characters/words.
+        *   No made-up facts/statistics.
+        *   Root key must be `blocks`.
+
+2.  **Drafting Content:**
+
+    *   **Topic:** Home computer file backup.
+    *   **Heading:** Something like "╨Ъ╨░╨║ ╨╛╤А╨│╨░╨╜╨╕╨╖╨╛╨▓╨░╤В╤М ╤А╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡[11D[K
+╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡".
+    *   **Voice Text (Russian, ~120 words):** Needs to explain the importan[8D[K
+importance of backups and briefly mention strategies (3-2-1 rule or cloud +[1D[K
++ external). Let's aim for 115-125 characters/words roughly. Actually, Russ[4D[K
+Russian counting can be tricky. I'll write a paragraph about why backup is [K
+important.
+        *   Draft: ╨Ч╨░╤Й╨╕╤В╨░ ╨▓╨░╤И╨╕╤Е ╨┤╨░╨╜╨╜╤Л╤Е тАФ ╨┐╤А╨╕╨╛╤А╨╕╤В╨╡╤В тДЦ1 ╨▓ ╤Ж╨╕╤Д╤А╨╛╨▓╨╛╨╣ ╨╢╨╕╨╖╨╜╨╕. ╨Я╨╛╤В[3D[K
+╨Я╨╛╤В╨╡╤А╤П ╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕╨╕ ╨╕╨╖-╨╖╨░ ╨┐╨╛╨╗╨╛╨╝╨║╨╕ ╨╕╨╗╨╕ ╨▓╨╖╨╗╨╛╨╝╨░ ╨╝╨╛╨╢╨╡╤В ╨▒╤Л╤В╤М ╨║╨░╤В╨░╤Б╤В╤А╨╛╤Д╨╛╨╣. ╨Я╤А╨░╨▓╨╕╨╗╤М╨╜[8D[K
+╨Я╤А╨░╨▓╨╕╨╗╤М╨╜╨░╤П ╤Б╤В╤А╨░╤В╨╡╨│╨╕╤П ╤А╨╡╨╖╨╡╤А╨▓╨╜╨╛╨│╨╛ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╤П ╨┐╤А╨╡╨┤╨╛╤В╨▓╤А╨░╤Й╨░╨╡╤В ╤Н╤В╨╛ ╨╜╨░╨▓╤Б╨╡╨│╨┤╨░. ╨Ш╤Б╨┐[3D[K
+╨Ш╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╣╤В╨╡ ╨┐╤А╨░╨▓╨╕╨╗╨╛ 3-2-1: ╤В╤А╨╕ ╨║╨╛╨┐╨╕╨╕, ╨┤╨▓╨░ ╤А╨░╨╖╨╜╤Л╤Е ╨╜╨╛╤Б╨╕╤В╨╡╨╗╤П ╨╕ ╨╛╨┤╨╜╨░ ╤Г╨┤╨░╨╗╨╡╨╜╨╜╨░╤П [K
+╤Е╤А╨░╨╜╨╕╤В╤Б╤П ╨▓╨╜╨╡ ╨┤╨╛╨╝╨░. ╨н╤В╨╛ ╨│╨░╤А╨░╨╜╤В╨╕╤А╤Г╨╡╤В ╨▒╨╡╨╖╨╛╨┐╨░╤Б╨╜╨╛╤Б╤В╤М ╨┤╨░╨╢╨╡ ╨┐╤А╨╕ ╨║╤А╨░╨╢╨╡ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨░ ╨╕[1D[K
+╨╕╨╗╨╕ ╨▓╨╕╤А╤Г╤Б╨╡. ╨а╨╡╨│╤Г╨╗╤П╤А╨╜╨╛ ╨┐╤А╨╛╨▓╨╡╤А╤П╨╣╤В╨╡ ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╕╨╝╨╛╤Б╤В╤М ╤Д╨░╨╣╨╗╨╛╨▓ ╨┐╨╛╤Б╨╗╨╡ ╤Б╨╛╨╖╨┤╨░╨╜╨╕╤П ╨╛╨▒╤А╨░[4D[K
+╨╛╨▒╤А╨░╨╖╨░. ╨Э╨╡ ╨┐╨╛╨╗╨░╨│╨░╨╣╤В╨╡╤Б╤М ╤В╨╛╨╗╤М╨║╨╛ ╨╜╨░ ╨╛╨┤╨╜╨╛ ╨╛╨▒╨╗╨░╤З╨╜╨╛╨╡ ╤Е╤А╨░╨╜╨╕╨╗╨╕╤Й╨╡ ╨▒╨╡╨╖ ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛╨│╨╛ ╨┤╤Г╨▒[3D[K
+╨┤╤Г╨▒╨╗╤П╨╢╨░.
+        *   Word count check: ~65 words in Russian draft above. Need to exp[3D[K
+expand to reach approx 120 characters/words (usually word count refers to s[1D[K
+space-separated tokens). Let's write more naturally.
+        *   Revised Draft: ╨Э╨░╨┤╨╡╨╢╨╜╨╛╨╡ ╤А╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╨╖╨░╤Й╨╕╤Й╨░╨╡╤В ╨▓╨░╤И╨╕ ╨▓╨░╨╢[3D[K
+╨▓╨░╨╢╨╜╤Л╨╡ ╨┤╨░╨╜╨╜╤Л╨╡ ╨╛╤В ╨┐╨╛╤В╨╡╤А╨╕, ╨▒╤Г╨┤╤М ╤В╨╛ ╤Б╨▒╨╛╨╣ ╨╛╨▒╨╛╤А╤Г╨┤╨╛╨▓╨░╨╜╨╕╤П ╨╕╨╗╨╕ ╨┐╤А╨╛╨│╤А╨░╨╝╨╝╨╜╨░╤П ╨╛╤И╨╕╨▒╨║╨░. [K
+╨Ь╨╜╨╛╨│╨╕╨╡ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╨╕ ╨┐╤А╨╡╨╜╨╡╨▒╤А╨╡╨│╨░╤О╤В ╤Н╤В╨╕╨╝ ╨┐╤А╨╛╤Ж╨╡╤Б╤Б╨╛╨╝ ╨┤╨╛ ╨╝╨╛╨╝╨╡╨╜╤В╨░ ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ ╤Б╨▒╨╛[3D[K
+╤Б╨▒╨╛╤П ╤Б╨╕╤Б╤В╨╡╨╝╤Л. ╨а╨╡╨║╨╛╨╝╨╡╨╜╨┤╤Г╨╡╤В╤Б╤П ╤Б╨╛╨▒╨╗╤О╨┤╨░╤В╤М ╨┐╤А╨╕╨╜╤Ж╨╕╨┐ 3-2-1 ╨┤╨╗╤П ╨╝╨░╨║╤Б╨╕╨╝╨░╨╗╤М╨╜╨╛╨╣ ╨▒╨╡╨╖╨╛╨┐╨░[6D[K
+╨▒╨╡╨╖╨╛╨┐╨░╤Б╨╜╨╛╤Б╤В╨╕. ╨н╤В╨╛ ╨╛╨╖╨╜╨░╤З╨░╨╡╤В ╤Б╨╛╨╖╨┤╨░╨╜╨╕╨╡ ╤В╤А╨╡╤Е ╨║╨╛╨┐╨╕╨╣ ╤Д╨░╨╣╨╗╨╛╨▓ ╨╜╨░ ╨┤╨▓╤Г╤Е ╤А╨░╨╖╨╗╨╕╤З╨╜╤Л╤Е ╨╜╨╛╤Б[3D[K
+╨╜╨╛╤Б╨╕╤В╨╡╨╗╤П╤Е, ╨┐╤А╨╕ ╤Н╤В╨╛╨╝ ╨╛╨┤╨╜╨░ ╤Е╤А╨░╨╜╨╕╤В╤Б╤П ╨▓ ╨╛╨▒╨╗╨░╨║╨╡ ╨╖╨░ ╨┐╤А╨╡╨┤╨╡╨╗╨░╨╝╨╕ ╨┤╨╛╨╝╨░. ╨Ы╨╛╨║╨░╨╗╤М╨╜╤Л╨╣ ╨▓╨╜╨╡[3D[K
+╨▓╨╜╨╡╤И╨╜╨╕╨╣ ╨┤╨╕╤Б╨║ ╨┐╨╛╨╖╨▓╨╛╨╗╤П╨╡╤В ╨▒╤Л╤Б╤В╤А╨╛ ╨▓╨╛╤Б╤Б╤В╨░╨╜╨░╨▓╨╗╨╕╨▓╨░╤В╤М ╤Д╨░╨╣╨╗╤Л ╨▒╨╡╨╖ ╨╕╨╜╤В╨╡╤А╨╜╨╡╤В╨░, ╨░ ╤Б╨╕╨╜╤Е╤А╨╛[6D[K
+╤Б╨╕╨╜╤Е╤А╨╛╨╜╨╕╨╖╨░╤Ж╨╕╤П ╤Б ╤Б╨╡╤А╨▓╨╕╤Б╨░╨╝╨╕ ╨╛╨▒╨╡╤Б╨┐╨╡╤З╨╕╨▓╨░╨╡╤В ╨┤╨╛╤Б╤В╤Г╨┐╨╜╨╛╤Б╤В╤М ╨╕╨╖ ╨╗╤О╨▒╨╛╨╣ ╤В╨╛╤З╨║╨╕ ╨╝╨╕╤А╨░. ╨Т╨░╨╢[3D[K
+╨Т╨░╨╢╨╜╨╛ ╤А╨╡╨│╤Г╨╗╤П╤А╨╜╨╛ ╨┐╤А╨╛╨▓╨╡╤А╤П╤В╤М ╤Ж╨╡╨╗╨╛╤Б╤В╨╜╨╛╤Б╤В╤М ╨░╤А╤Е╨╕╨▓╨╛╨▓ ╨╕ ╤В╨╡╤Б╤В╨╕╤А╨╛╨▓╨░╤В╤М ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╕╨╡ [K
+╨┤╨░╨╜╨╜╤Л╤Е ╤Е╨╛╤В╤П ╨▒╤Л ╤А╨░╨╖ ╨▓ ╨│╨╛╨┤ ╨┐╨╡╤А╨╡╨┤ ╨▓╨╛╨╖╨╜╨╕╨║╨╜╨╛╨▓╨╡╨╜╨╕╨╡╨╝ ╤А╨╡╨░╨╗╤М╨╜╨╛╨╣ ╨┐╤А╨╛╨▒╨╗╨╡╨╝╤Л.
+
+    *   **Slides (2 objects):**
+        *   Slide 1: Focus on local backups (external drive). `type`: "outl[5D[K
+"outline", or similar. Let's check required fields again: `id`, `kind` are [K
+at block level. Block needs `slides`. Each slide object needs `type, title,[6D[K
+title, body, metric, photo_keyword, items, source`. Wait, the prompt says "[1D[K
+"╨Я╨╛╨╗╤П ╤Б╨╗╨░╨╣╨┤╨░: type, title, body, metric, photo_keyword, items, source". So [K
+I need to provide values for all these keys in each slide.
+        *   Slide 1 Idea: External Drive backup strategy.
+            `type`: "text",
+            `title`: "╨Т╨╜╨╡╤И╨╜╨╕╨╣ ╨╢╨╡╤Б╤В╨║╨╕╨╣ ╨┤╨╕╤Б╨║",
+            `body`: "╨Ш╤Б╨┐╨╛╨╗╤М╨╖╤Г╨╣╤В╨╡ ╨░╨▓╤В╨╛╨╜╨╛╨╝╨╜╤Л╨╣ ╨▓╨╜╨╡╤И╨╜╨╕╨╣ ╨╜╨░╨║╨╛╨┐╨╕╤В╨╡╨╗╤М ╨┤╨╗╤П ╤Е╤А╨░╨╜╨╡╨╜╨╕╤П[8D[K
+╤Е╤А╨░╨╜╨╡╨╜╨╕╤П ╨┐╨╛╨╗╨╜╨╛╨╣ ╨║╨╛╨┐╨╕╨╕ ╨▓╨░╨╢╨╜╤Л╤Е ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨╛╨▓ ╨╕ ╤Д╨╛╤В╨╛.",
+            `metric`: null or string? Prompt says fields must be non-empty [K
+for title and body. Doesn't explicitly say others, but to follow schema str[3D[K
+strictly, I'll put meaningful strings/nulls where appropriate. Let's use em[2D[K
+empty strings if allowed, but better not. Let's put "time" as metric type.
+            `photo_keyword`: null or English string? Prompt says "if filled[6D[K
+filled... in english". I can leave it null or fill with English like "exter[6D[K
+"external hard drive backup". Let's fill for consistency unless specified o[1D[K
+otherwise. Actually prompt: "`photo_keyword`, ╨╡╤Б╨╗╨╕ ╨╖╨░╨┐╨╛╨╗╨╜╨╡╨╜, ╤В╨╛╨╢╨╡ ╨┤╨╛╨╗╨╢╨╡╨╜ ╨▒╤Л[2D[K
+╨▒╤Л╤В╤М ╨╜╨░ ╨░╨╜╨│╨╗╨╕╨╣╤Б╨║╨╛╨╝." Implies it *can* be empty/null, but if present must be[2D[K
+be EN.
+            `items`: Array of strings? Or object? Schema doesn't specify in[2D[K
+inner type exactly beyond "array". Let's make an array of keywords.
+            `source`: String like "wikihow.com" or similar general knowledg[8D[K
+knowledge (not fake facts). Maybe just "best-practices.org".
+        *   Slide 2 Idea: Cloud backup strategy.
+            Same fields filled similarly.
+
+    *   **broll_keywords**: Two short English search queries. E.g., ["hard [K
+drive connection", "cloud sync indicator"].
+
+3.  **Refining JSON Structure:**
+    Root must be `{ blocks: [...] }`. Inside block, `kind`, etc.
+
+4.  **Checking Constraints again:**
+    *   Only one valid JSON object. No Markdown (```json ... ```). Just raw[3D[K
+raw text starting with `{` or the structure provided in format example? For[3D[K
+Format says:
+        {
+          blocks: [
+            {...}
+          ]
+        }
+      So I must output exactly that structure inside a code block or just p[1D[K
+plain text? "╨Т╨╡╤А╨╜╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨╛╨┤╨╕╨╜ ╨║╨╛╤А╤А╨╡╨║╤В╨╜╤Л╨╣ JSON-╨╛╨▒╤К╨╡╨║╤В, ╨▒╨╡╨╖ Markdown ╨╕ ╨┐╨╛╤П╤Б╨╜[5D[K
+╨┐╨╛╤П╤Б╨╜╨╡╨╜╨╕╨╣." (Return only one correct JSON object, without Markdown and expl[4D[K
+explanations). This means no markdown ticks around the json. Just raw `{...[5D[K
+`{...}` text starting at first char and ending last.
+    *   `voice_text`: ~120 words Russian. My draft above looks a bit short [K
+maybe? Let's count roughly. 4 rows of my revised draft is about 90-100 char[4D[K
+chars. A "word" in Russian usually means space-separated sequence. I need t[1D[K
+to aim for visual length similar to English word count but since it's Russi[5D[K
+Russian, words are longer (2 syllables per word average). To hit ~120 *word[5D[K
+*words* roughly would take more text. Or does it mean 120 characters? "╨┐╤А╨╕╨╝[5D[K
+"╨┐╤А╨╕╨╝╨╡╤А╨╜╨╛ ╨╜╨░ 120 ╤Б╨╗╨╛╨▓". Okay, I need around 120 distinct lexemes. That is q[1D[K
+quite a bit of text for Russian voiceover (roughly 3-4 sentences).
+    *   Let's rewrite `voice_text` to be longer.
+        Text: ╨а╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╨┤╨░╨╜╨╜╤Л╤Е тАФ ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╕ ╨▓╨░╨╢╨╜╨░╤П ╨┐╤А╨░╨║╤В╨╕╨║╨░ ╨┤╨╗╤П[3D[K
+╨┤╨╗╤П ╨╗╤О╨▒╨╛╨│╨╛ ╨▓╨╗╨░╨┤╨╡╨╗╤М╤Ж╨░ ╤Б╨╛╨▓╤А╨╡╨╝╨╡╨╜╨╜╨╛╨│╨╛ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨░, ╨┐╨╛╨╖╨▓╨╛╨╗╤П╤О╤Й╨░╤П ╨╕╨╖╨▒╨╡╨╢╨░╤В╤М ╤Г╤В╤А╨░╤В╤Л ╤Ж[1D[K
+╤Ж╨╡╨╜╨╜╨╛╨╣ ╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕╨╕ ╨╜╨░╨▓╤Б╨╡╨│╨┤╨░. ╨Я╨╛╤В╨╡╤А╨╕ ╤Б╨╗╤Г╤З╨░╤О╤В╤Б╤П ╨▓╨╜╨╡╨╖╨░╨┐╨╜╨╛ ╨╕ ╨╝╨╛╨│╤Г╤В ╨▒╤Л╤В╤М ╤Б╨▓╤П╨╖╨░╨╜╤Л [K
+╤Б ╤Д╨╕╨╖╨╕╤З╨╡╤Б╨║╨╕╨╝ ╨╕╨╖╨╜╨╛╤Б╨╛╨╝ ╨╛╨▒╨╛╤А╤Г╨┤╨╛╨▓╨░╨╜╨╕╤П ╨╕╨╗╨╕ ╨┐╤А╨╛╨│╤А╨░╨╝╨╝╨╜╤Л╨╝╨╕ ╤Б╨▒╨╛╤П╨╝╨╕ ╨╛╨┐╨╡╤А╨░╤Ж╨╕╨╛╨╜╨╜╤Л╤Е ╤Б╨╕╤Б╤В[4D[K
+╤Б╨╕╤Б╤В╨╡╨╝ ╨▒╨╡╨╖ ╨▓╨╛╨╖╨╝╨╛╨╢╨╜╨╛╤Б╤В╨╕ ╨▓╨╛╨╖╨▓╤А╨░╤В╨░ ╤А╨░╨▒╨╛╤В╨╛╤Б╨┐╨╛╤Б╨╛╨▒╨╜╨╛╤Б╤В╨╕ ╨┐╨╛╤Б╨╗╨╡ ╨░╨▓╨░╤А╨╕╨╣╨╜╨╛╨│╨╛ ╨╖╨░╨▓╨╡╤А╤И╨╡╨╜[8D[K
+╨╖╨░╨▓╨╡╤А╤И╨╡╨╜╨╕╤П ╤Б╨╡╨░╨╜╤Б╨░ ╤А╨░╨▒╨╛╤В╤Л ╨┐╨╛ ╤Г╨╝╨╛╨╗╤З╨░╨╜╨╕╤О ╨╕╨╖-╨╖╨░ ╨╛╤В╤Б╤Г╤В╤Б╤В╨▓╨╕╤П ╤А╨╡╨│╤Г╨╗╤П╤А╨╜╤Л╤Е ╨┐╤А╨╛╤Ж╨╡╨┤╤Г╤А [K
+╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╕╤П ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╤П ╤Б╨╕╤Б╤В╨╡╨╝╤Л ╨╜╨░ ╨╜╨░╨┤╨╡╨╢╨╜╨╛╨╝ ╨╜╨╛╤Б╨╕╤В╨╡╨╗╨╡ ╨┤╨╗╤П ╨┐╨╛╤Б╨╗╨╡╨┤╤Г╤О╤Й╨╡╨│╨╛ ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛[8D[K
+╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╕╤П ╨▓╤Б╨╡╤Е ╨╖╨░╨┐╨╕╤Б╨░╨╜╨╜╤Л╤Е ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╨╡╨╝ ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨╛╨▓. ╨а╨╡╨║╨╛╨╝╨╡╨╜╨┤╤Г╨╡╤В╤Б╤П ╨╕╤Б╨┐╨╛[4D[K
+╨╕╤Б╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╤М ╨┐╤А╨░╨▓╨╕╨╗╨╛ 3-2-1 ╨║╨░╨║ ╨▒╨░╨╖╤Г ╤Б╤В╤А╨░╤В╨╡╨│╨╕╨╕, ╨║╨╛╤В╨╛╤А╨╛╨╡ ╤В╤А╨╡╨▒╤Г╨╡╤В ╤Б╨╛╨╖╨┤╨░╨╜╨╕╤П ╤В╤А╨╡[3D[K
+╤В╤А╨╡╤Е ╨┐╨╛╨╗╨╜╤Л╤Е ╨║╨╛╨┐╨╕╨╣ ╨┤╨░╨╜╨╜╤Л╤Е ╨╝╨╕╨╜╨╕╨╝╤Г╨╝ ╤А╨░╨╖ ╨▓ ╨╝╨╡╤Б╤П╤Ж ╨╕╨╗╨╕ ╨╜╨╡╨┤╨╡╨╗╤О ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╤П ╨▓╨╜╨╡╤И╨╜╨╕╨╣ ╨┤[1D[K
+╨┤╨╕╤Б╨║ ╨╕ ╨╛╨▒╨╗╨░╤З╨╜╤Л╨╣ ╤Б╨╡╤А╨▓╨╕╤Б ╨╛╨┤╨╜╨╛╨▓╤А╨╡╨╝╨╡╨╜╨╜╨╛ ╨▒╨╡╨╖ ╤А╨╕╤Б╨║╨░ ╨┐╨╛╨╗╨╜╨╛╨╣ ╤Г╤В╤А╨░╤В╤Л ╨┐╤А╨╕ ╨┐╨╛╤В╨╡╤А╨╡ ╨╛╨┤╨╜╨╛[4D[K
+╨╛╨┤╨╜╨╛╨│╨╛ ╨╕╨╖ ╤Г╤Б╤В╤А╨╛╨╣╤Б╤В╨▓ ╤Е╤А╨░╨╜╨╡╨╜╨╕╤П ╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕╨╕ ╨╜╨░╨▓╤Б╨╡╨│╨┤╨░ ╨┤╨╗╤П ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П ╨┤╨╛╨╝╨░.
+        Count: roughly 90 words? Still short maybe. Let's count precisely i[1D[K
+in head... ~125 characters per word average is wrong. Just make it longer p[1D[K
+paragraph.
+
+    *   **Slide fields:** "type, title, body, metric, photo_keyword, items,[6D[K
+items, source". All must exist. If I put `null` or empty string for some? P[1D[K
+Prompt says: "`title` and `body` should be non-empty" (implied by other lin[3D[K
+lines). It doesn't strictly forbid nulls on others but to keep JSON valid s[1D[K
+standard usually strings are preferred over null if possible unless schema [K
+allows null. Let's try to fill them all with meaningful values.
+    *   Wait, the prompt format example shows: `slides`, broll_keywords` at[2D[K
+at top level of object inside blocks array? No, looking at "╨д╨╛╤А╨╝╨░╤В" section[7D[K
+section in prompt description: `{ blocks: [ { id..., kind... , voice_text..[12D[K
+voice_text..., slides[], broll_[] } ] }`. But the specific fields list says[4D[K
+says: create one block with fields `id`, `kind`, `heading`, `voice_text`, `[1D[K
+`slides`, `broll_keywords`.
+    *   The example format shows a schema at top level of blocks array. So [K
+I must follow that structure strictly inside `blocks[0]`.
+
+5.  **Final Polish:**
+    *   Ensure valid JSON escaping (quotes).
+    *   No Markdown ticks around the json block. Just raw text.
+    *   Check Russian words count for voice_text to be close to 120 words. [K
+I will expand it slightly more than usual paragraphs.
+
+    Revised Voice Text Plan:
+    "╨а╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╤Д╨░╨╣╨╗╨╛╨▓ ╨╜╨░ ╨┤╨╛╨╝╨░╤И╨╜╨╡╨╝ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ тАФ ╤Н╤В╨╛ ╤Д╤Г╨╜╨┤╨░╨╝╨╡╨╜╤В╨░╨╗╤М[12D[K
+╤Д╤Г╨╜╨┤╨░╨╝╨╡╨╜╤В╨░╨╗╤М╨╜╨░╤П ╨┐╤А╨░╨║╤В╨╕╨║╨░ ╤Ж╨╕╤Д╤А╨╛╨▓╨╛╨╣ ╨▒╨╡╨╖╨╛╨┐╨░╤Б╨╜╨╛╤Б╤В╨╕, ╨║╨╛╤В╨╛╤А╨░╤П ╨╖╨░╤Й╨╕╤Й╨░╨╡╤В ╨▓╨░╤И╨╕ ╨▓╨░╨╢╨╜╤Л[5D[K
+╨▓╨░╨╢╨╜╤Л╨╡ ╨╝╨░╤В╨╡╤А╨╕╨░╨╗╤Л ╨╛╤В ╤Б╨╗╤Г╤З╨░╨╣╨╜╨╛╨╣ ╤Г╤В╤А╨░╤В╤Л. ╨б╨▒╨╛╨╕ ╨┐╤А╨╛╨│╤А╨░╨╝╨╝╨╜╨╛╨│╨╛ ╨╛╨▒╨╡╤Б╨┐╨╡╤З╨╡╨╜╨╕╤П ╨╕╨╗╨╕ ╨░╨┐╨┐[3D[K
+╨░╨┐╨┐╨░╤А╨░╤В╨╜╤Л╨╡ ╨╜╨╡╨╕╤Б╨┐╤А╨░╨▓╨╜╨╛╤Б╤В╨╕ ╨╝╨╛╨│╤Г╤В ╨┐╤А╨╕╨▓╨╡╤Б╤В╨╕ ╨║ ╨╜╨╡╨╛╨▒╤А╨░╤В╨╕╨╝╤Л╨╝ ╨┐╨╛╤Б╨╗╨╡╨┤╤Б╤В╨▓╨╕╤П╨╝ ╨┤╨╗╤П ╨▓╨░╤И╨╕[4D[K
+╨▓╨░╤И╨╕╤Е ╨╗╨╕╤З╨╜╤Л╤Е ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨╛╨▓ ╨╕ ╤Д╨╛╤В╨╛╨│╤А╨░╤Д╨╕╨╣ ╨▓ ╨╕╨╜╤В╨╡╤А╨╜╨╡╤В╨╡. ╨а╨╡╨║╨╛╨╝╨╡╨╜╨┤╤Г╨╡╤В╤Б╤П ╨▓╤Б╨╡╨│╨┤╨░ ╤Е╤А╨░╨╜[4D[K
+╤Е╤А╨░╨╜╨╕╤В╤М ╨╜╨╡╤Б╨║╨╛╨╗╤М╨║╨╛ ╨║╨╛╨┐╨╕╨╣ ╨┤╨░╨╜╨╜╤Л╤Е ╨╛╨┤╨╜╨╛╨▓╤А╨╡╨╝╨╡╨╜╨╜╨╛ ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╤П ╤А╨░╨╖╨╗╨╕╤З╨╜╤Л╨╡ ╤В╨╕╨┐╤Л ╤Г╤Б╤В╤А╨╛╨╣[6D[K
+╤Г╤Б╤В╤А╨╛╨╣╤Б╤В╨▓ ╤Е╤А╨░╨╜╨╡╨╜╨╕╤П ╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕╨╕ ╨▒╨╡╨╖ ╤А╨╕╤Б╨║╨░ ╨┐╨╛╨╗╨╜╨╛╨│╨╛ ╨┐╨╛╨▓╤А╨╡╨╢╨┤╨╡╨╜╨╕╤П ╤Б╨╕╤Б╤В╨╡╨╝╤Л ╨┐╨╛╤Б╨╗╨╡ ╨║[1D[K
+╨║╤А╨░╨╢╨╕ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨░ ╨▓╨╝╨╡╤Б╤В╨╡ ╤Б ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╜╤Л╨╝╨╕ ╤Б╨╡╤В╨╡╨▓╤Л╨╝╨╕ ╨╜╨░╨║╨╛╨┐╨╕╤В╨╡╨╗╤П╨╝╨╕ ╨▓ ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛╨╣ ╤Б[1D[K
+╤Б╨╡╤В╨╕ ╨┤╨╛╨╝╨░."
+
+    Wait, that is still short words wise? Let's count roughly:
+    1 ╨а╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡
+    2 ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡
+    ... It needs to be longer. I will write a more detailed explanation abo[3D[K
+about the process and benefits without inventing specific numbers (as per r[1D[K
+rules).
+    
+    Final Voice Text Target: 
+    "╨а╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╤Д╨░╨╣╨╗╨╛╨▓ ╨╜╨░ ╨┤╨╛╨╝╨░╤И╨╜╨╡╨╝ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ тАФ ╤Н╤В╨╛ ╤Д╤Г╨╜╨┤╨░╨╝╨╡╨╜╤В╨░╨╗╤М[12D[K
+╤Д╤Г╨╜╨┤╨░╨╝╨╡╨╜╤В╨░╨╗╤М╨╜╨░╤П ╨┐╤А╨░╨║╤В╨╕╨║╨░ ╤Ж╨╕╤Д╤А╨╛╨▓╨╛╨╣ ╨▒╨╡╨╖╨╛╨┐╨░╤Б╨╜╨╛╤Б╤В╨╕, ╨║╨╛╤В╨╛╤А╨░╤П ╨╖╨░╤Й╨╕╤Й╨░╨╡╤В ╨▓╨░╤И╨╕ ╨▓╨░╨╢╨╜╤Л[5D[K
+╨▓╨░╨╢╨╜╤Л╨╡ ╨╝╨░╤В╨╡╤А╨╕╨░╨╗╤Л ╨╛╤В ╤Б╨╗╤Г╤З╨░╨╣╨╜╨╛╨╣ ╤Г╤В╤А╨░╤В╤Л. ╨б╨▒╨╛╨╕ ╨┐╤А╨╛╨│╤А╨░╨╝╨╝╨╜╨╛╨│╨╛ ╨╛╨▒╨╡╤Б╨┐╨╡╤З╨╡╨╜╨╕╤П ╨╕╨╗╨╕ ╨░╨┐╨┐[3D[K
+╨░╨┐╨┐╨░╤А╨░╤В╨╜╤Л╨╡ ╨╜╨╡╨╕╤Б╨┐╤А╨░╨▓╨╜╨╛╤Б╤В╨╕ ╨╝╨╛╨│╤Г╤В ╨┐╤А╨╕╨▓╨╡╤Б╤В╨╕ ╨║ ╨╜╨╡╨╛╨▒╤А╨░╤В╨╕╨╝╤Л╨╝ ╨┐╨╛╤Б╨╗╨╡╨┤╤Б╤В╨▓╨╕╤П╨╝ ╨┤╨╗╤П ╨▓╨░╤И╨╕[4D[K
+╨▓╨░╤И╨╕╤Е ╨╗╨╕╤З╨╜╤Л╤Е ╨┤╨╛╨║╤Г╨╝╨╡╨╜╤В╨╛╨▓ ╨╕ ╤Д╨╛╤В╨╛╨│╤А╨░╤Д╨╕╨╣ ╨▓ ╨╕╨╜╤В╨╡╤А╨╜╨╡╤В╨╡. ╨а╨╡╨║╨╛╨╝╨╡╨╜╨┤╤Г╨╡╤В╤Б╤П ╨▓╤Б╨╡╨│╨┤╨░ ╤Е╤А╨░╨╜[4D[K
+╤Е╤А╨░╨╜╨╕╤В╤М ╨╜╨╡╤Б╨║╨╛╨╗╤М╨║╨╛ ╨║╨╛╨┐╨╕╨╣ ╨┤╨░╨╜╨╜╤Л╤Е ╨╛╨┤╨╜╨╛╨▓╤А╨╡╨╝╨╡╨╜╨╜╨╛ ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╤П ╤А╨░╨╖╨╗╨╕╤З╨╜╤Л╨╡ ╤В╨╕╨┐╤Л ╤Г╤Б╤В╤А╨╛╨╣[6D[K
+╤Г╤Б╤В╤А╨╛╨╣╤Б╤В╨▓ ╤Е╤А╨░╨╜╨╡╨╜╨╕╤П ╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕╨╕ ╨▒╨╡╨╖ ╤А╨╕╤Б╨║╨░ ╨┐╨╛╨╗╨╜╨╛╨│╨╛ ╨┐╨╛╨▓╤А╨╡╨╢╨┤╨╡╨╜╨╕╤П ╤Б╨╕╤Б╤В╨╡╨╝╤Л ╨┐╨╛╤Б╨╗╨╡ ╨║[1D[K
+╨║╤А╨░╨╢╨╕ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨░ ╨▓╨╝╨╡╤Б╤В╨╡ ╤Б ╨┐╨╛╨┤╨║╨╗╤О╤З╨╡╨╜╨╜╤Л╨╝╨╕ ╤Б╨╡╤В╨╡╨▓╤Л╨╝╨╕ ╨╜╨░╨║╨╛╨┐╨╕╤В╨╡╨╗╤П╨╝╨╕ ╨▓ ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛╨╣ ╤Б[1D[K
+╤Б╨╡╤В╨╕ ╨┤╨╛╨╝╨░. ╨Т╨░╨╢╨╜╨╛ ╨┐╨╛╨╜╨╕╨╝╨░╤В╤М, ╤З╤В╨╛ ╨╛╨▒╨╗╨░╤З╨╜╤Л╨╡ ╤Б╨╡╤А╨▓╨╕╤Б╤Л ╨╜╨╡ ╨╖╨░╨╝╨╡╨╜╤П╤О╤В ╨╜╨╡╨╛╨▒╤Е╨╛╨┤╨╕╨╝╨╛╤Б╤В╤М ╨╕[1D[K
+╨╕╨╝╨╡╤В╤М ╤Д╨╕╨╖╨╕╤З╨╡╤Б╨║╨╕╨╣ ╨┤╨╕╤Б╨║ ╨┐╨╛╨┤ ╤А╤Г╨║╨╛╨╣ ╨╜╨░ ╤Б╨╗╤Г╤З╨░╨╣ ╨╛╤В╨║╨╗╤О╤З╨╡╨╜╨╕╤П ╨╕╨╜╤В╨╡╤А╨╜╨╡╤В╨░ ╤Г ╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░[10D[K
+╨┐╤А╨╛╨▓╨░╨╣╨┤╨╡╤А╨░." 
+    This is around 120 words? Let's assume standard Russian word count toke[4D[K
+tokenization (space delimited).
+    
+    Let's try to make it slightly longer to be sure.
+
+6.  **Constructing JSON:**
+    Escape special characters if any quotes inside strings. The text doesn'[6D[K
+doesn't have double quotes, only apostrophes or dashes which are fine in UT[2D[K
+UTF-8. I'll use single quotes for internal text just in case, but standard [K
+Russian uses no smart quotes usually to avoid encoding issues.
+    
+    Slide fields check: `type`, `title`, `body`, `metric`, `photo_keyword`,[16D[K
+`photo_keyword`, `items`, `source`. 
+    For each slide object, ensure all 7 keys exist with non-empty string va[2D[K
+values (except maybe items which is array). To be safe I will make them sim[3D[K
+simple arrays or strings.
+
+    Let's build the JSON carefully.
+    
+```json
+{
+ "blocks": [
+  {
+   "id": "backup_strategy", 
+   "kind": "section", 
+   "heading": "╨б╤В╤А╨░╤В╨╡╨│╨╕╤П ╤А╨╡╨╖╨╡╤А╨▓╨╜╨╛╨│╨╛ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╤П ╨╜╨░ ╨┤╨╛╨╝╨░╤И╨╜╨╡╨╝ ╨Я╨Ъ",
+   "voice_text": "╨а╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╤Д╨░╨╣╨╗╨╛╨▓ ╨╜╨░ ╨┤╨╛╨╝╨░╤И╨╜╨╡╨╝ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤П╨▓╨╗╤П╨╡[5D[K
+╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╕ ╨▓╨░╨╢╨╜╤Л╨╝ ╤Н╤В╨░╨┐╨╛╨╝ ╨╖╨░╤Й╨╕╤В╤Л ╨┤╨░╨╜╨╜╤Л╤Е ╨╛╤В ╨┐╨╛╤В╨╡╤А╨╕ ╨╕ ╨┐╨╛╨▓╤А╨╡╨╢╨┤╨╡╨╜╨╕╤П ╨╛╨▒╨╛[3D[K
+╨╛╨▒╨╛╤А╤Г╨┤╨╛╨▓╨░╨╜╨╕╤П. ╨Я╨╛╤В╨╡╤А╤П ╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕╨╕ ╨╝╨╛╨╢╨╡╤В ╨┐╤А╨╛╨╕╨╖╨╛╨╣╤В╨╕ ╨▓╨╜╨╡╨╖╨░╨┐╨╜╨╛ ╨╕╨╖-╨╖╨░ ╤Б╨▒╨╛╤П ╨┤╨╕╤Б╨║╨░, [K
+╨┤╨╡╨╣╤Б╤В╨▓╨╕╤П ╨▓╨╕╤А╤Г╤Б╨╛╨▓ ╨╕╨╗╨╕ ╤Б╨╗╤Г╤З╨░╨╣╨╜╨╛╨│╨╛ ╤Г╨┤╨░╨╗╨╡╨╜╨╕╤П ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╨╡╨╝ ╨▓╨░╨╢╨╜╤Л╤Е ╨╝╨░╤В╨╡╤А╨╕╨░╨╗╨╛╨▓ ╨▒╨╡[2D[K
+╨▒╨╡╨╖ ╨┐╤А╨╡╨┤╨▓╨░╤А╨╕╤В╨╡╨╗╤М╨╜╨╛╨╣ ╤Б╨╕╨╜╤Е╤А╨╛╨╜╨╕╨╖╨░╤Ж╨╕╨╕ ╤Б ╨╛╨▒╨╗╨░╨║╨╛╨╝. ╨Я╨╛╤Н╤В╨╛╨╝╤Г ╤Б╨┐╨╡╤Ж╨╕╨░╨╗╨╕╤Б╤В╤Л ╤А╨╡╨║╨╛╨╝╨╡╨╜╨┤╤Г╤О[10D[K
+╤А╨╡╨║╨╛╨╝╨╡╨╜╨┤╤Г╤О╤В ╨╕╤Б╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╤М ╨┐╤А╨░╨▓╨╕╨╗╨╛ 3 ╨╜╨░ 2 ╨╜╨░ 1 ╨┤╨╗╤П ╨┐╨╛╤Б╤В╤А╨╛╨╡╨╜╨╕╤П ╨╜╨░╨┤╨╡╨╢╨╜╨╛╨╣ ╤Б╨╕╤Б╤В╨╡╨╝[6D[K
+╤Б╨╕╤Б╤В╨╡╨╝╤Л ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╕╤П ╤Д╨░╨╣╨╗╨╛╨▓ ╨│╨┤╨╡ ╤Б╨╛╨╖╨┤╨░╨╡╤В╤Б╤П ╤В╤А╨╕ ╨║╨╛╨┐╨╕╨╕ ╨┤╨░╨╜╨╜╤Л╤Е ╤Е╤А╨░╨╜╤П╤Й╨╕╨╡╤Б╤П ╨╜╨░ ╨┤╨▓╤Г╤Е[4D[K
+╨┤╨▓╤Г╤Е ╤А╨░╨╖╨╜╤Л╤Е ╨╜╨╛╤Б╨╕╤В╨╡╨╗╤П╤Е ╨┐╤А╨╕ ╤Н╤В╨╛╨╝ ╨╛╨┤╨╜╨░ ╨╕╨╖ ╨╜╨╕╤Е ╨▓╤Б╨╡╨│╨┤╨░ ╨╜╨░╤Е╨╛╨┤╨╕╤В╤Б╤П ╨▓╨╜╨╡ ╤Д╨╕╨╖╨╕╤З╨╡╤Б╨║╨╛╨│╨╛[11D[K
+╤Д╨╕╨╖╨╕╤З╨╡╤Б╨║╨╛╨│╨╛ ╨┤╨╛╨╝╨░ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╤П ╨╛╨╜╨╗╨░╨╣╨╜ ╨▓ ╨╕╨╜╤В╨╡╤А╨╜╨╡╤В╨╡ ╤А╨╡╨│╤Г╨╗╤П╤А╨╜╨╛ ╨┐╤А╨╛╨▓╨╡╤А╤П╨╡╤В╤Б╤П ╤А╨░╨▒╨╛[4D[K
+╤А╨░╨▒╨╛╤В╨╛╤Б╨┐╨╛╤Б╨╛╨▒╨╜╨╛╤Б╤В╤М ╨░╤А╤Е╨╕╨▓╨╛╨▓ ╤З╤В╨╛╨▒╤Л ╤Г╨▒╨╡╨┤╨╕╤В╤М╤Б╤П ╤З╤В╨╛ ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╤А╨╛╤И╨╗╨╛ ╤Г╤Б╨┐╨╡╤И╨╜╨╛[7D[K
+╤Г╤Б╨┐╨╡╤И╨╜╨╛ ╨╕ ╤Д╨░╨╣╨╗╤Л ╨┤╨╛╤Б╤В╤Г╨┐╨╜╤Л ╨▒╨╡╨╖ ╨╛╤И╨╕╨▒╨╛╨║.",
+   "slides": [
+    {
+     "type": "outline", 
+     "title": "╨Ы╨╛╨║╨░╨╗╤М╨╜╨╛╨╡ ╤А╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡", 
+     "body": "╨Я╨╛╨┤╨║╨╗╤О╤З╨╕╤В╨╡ ╨▓╨╜╨╡╤И╨╜╨╕╨╣ ╨┤╨╕╤Б╨║ ╨┤╨╗╤П ╨┐╨╛╨╗╨╜╨╛╨╣ ╨║╨╛╨┐╨╕╨╕ ╤Д╨░╨╣╨╗╨╛╨▓ ╤Б╨╕╤Б╤В╨╡╨╝╤Л ╤А╨╡╨│╤Г╨╗[5D[K
+╤А╨╡╨│╤Г╨╗╤П╤А╨╜╨╛ ╨┐╤А╨╛╨▓╨╡╤А╤П╨╣╤В╨╡ ╨╜╨░╨╗╨╕╤З╨╕╨╡ ╤Б╨▓╨╛╨▒╨╛╨┤╨╜╨╛╨│╨╛ ╨╝╨╡╤Б╤В╨░ ╨╜╨░ ╨╜╨░╨║╨╛╨┐╨╕╤В╨╡╨╗╨╡ ╤З╤В╨╛╨▒╤Л ╨╛╨▒╨╡╤Б╨┐╨╡╤З╨╕╤В[9D[K
+╨╛╨▒╨╡╤Б╨┐╨╡╤З╨╕╤В╤М ╨▒╤Л╤Б╤В╤А╨╛╨╡ ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛╤Б╨╗╨╡ ╤Б╨▒╨╛╤П.",
+     "metric": "time_scheduled_weekly", 
+     "photo_keyword": "external hard drive connection cable", 
+     "items": ["system_folder", "documents_root"], 
+     "source": "home_laptop_backup"
+    },
+    {
+     "type": "cloud_sync", 
+     "title": "╨Ю╨▒╨╗╨░╤З╨╜╨░╤П ╤Б╨╕╨╜╤Е╤А╨╛╨╜╨╕╨╖╨░╤Ж╨╕╤П ╨┤╨░╨╜╨╜╤Л╤Е", 
+     "body": "╨Э╨░╤Б╤В╤А╨╛╨╣╤В╨╡ ╨░╨▓╤В╨╛╨╝╨░╤В╨╕╤З╨╡╤Б╨║╤Г╤О ╨╖╨░╨│╤А╤Г╨╖╨║╤Г ╨▓ ╨╛╨▒╨╗╨░╤З╨╜╤Л╨╣ ╤Б╨╡╤А╨▓╨╕╤Б ╨┤╨╗╤П ╨┤╨╛╤Б╤В╤Г[5D[K
+╨┤╨╛╤Б╤В╤Г╨┐╨░ ╨║ ╤Д╨░╨╣╨╗╨░╨╝ ╨╕╨╖ ╨╗╤О╨▒╨╛╨╣ ╤В╨╛╤З╨║╨╕ ╨╝╨╕╤А╨░ ╨╕╤Б╨┐╨╛╨╗╤М╨╖╤Г╤П ╨▒╤А╨░╤Г╨╖╨╡╤А ╨╕╨╗╨╕ ╨╛╤Д╨╕╤Ж╨╕╨░╨╗╤М╨╜╨╛╨╡ ╨╝╨╛╨▒╨╕[4D[K
+╨╝╨╛╨▒╨╕╨╗╤М╨╜╨╛╨╡ ╨┐╤А╨╕╨╗╨╛╨╢╨╡╨╜╨╕╨╡ ╤Г╤Б╤В╤А╨╛╨╣╤Б╤В╨▓╨░.",
+     "metric": "storage_volume_gb_used", 
+     "photo_keyword": "cloud storage interface login screen", 
+     "items": ["user_profile_folder", "media_library"], 
+     "source": "official_service_provider"
+    }
+   ], 
+   "broll_keywords": [
+    "computer backup drive setup tutorial", 
+    "cloud synchronization settings configuration example"
+   ]
+  }
+ ]
+}
+```
+
+7.  **Final Review:**
+    *   Root key `blocks`? Yes.
+    *   Array inside blocks with one object? Yes.
+    *   Keys match requirements: id, kind, heading, voice_text, slides (arr[4D[K
+(array), broll_keywords (array).
+    *   Slide objects have all 7 keys: type, title, body, metric, photo_key[9D[K
+photo_keyword, items, source.
+    *   Russian text approx 120 words? The draft looks substantial but let'[4D[K
+let's count roughly again mentally to be safer. "╨а╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╤Д╨░╨╣╨╗[4D[K
+╤Д╨░╨╣╨╗╨╛╨▓ ╨╜╨░ ╨┤╨╛╨╝╨░╤И╨╜╨╡╨╝ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╕ ╨▓╨░╨╢╨╜╤Л╨╝ ╤Н╤В╨░╨┐╨╛╨╝ ╨╖╨░╤Й╨╕╤В╤Л ╨┤╨░╨╜╨╜[4D[K
+╨┤╨░╨╜╨╜╤Л╤Е ╨╛╤В ╨┐╨╛╤В╨╡╤А╨╕ ╨╕ ╨┐╨╛╨▓╤А╨╡╨╢╨┤╨╡╨╜╨╕╤П ╨╛╨▒╨╛╤А╤Г╨┤╨╛╨▓╨░╨╜╨╕╤П." (approx 18) + next sentence .[1D[K
+... Total seems around 130-140 characters, actually words in Russian are lo[2D[K
+longer so might not reach 120 *words* but it's okay for "text". Wait. In Ru[2D[K
+Russian context "╨╜╨░ 120 ╤Б╨╗╨╛╨▓" usually implies word count similar to English[7D[K
+English roughly meaning about half a minute of speech. My paragraph is like[4D[K
+likely around 85-95 actual space-separated words in my head draft. I will e[1D[K
+expand slightly more carefully to ensure compliance if possible without mak[3D[K
+making it too long. 
+    Let's re-craft voice_text to be longer:
+    "╨а╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╤Д╨░╨╣╨╗╨╛╨▓ ╨╜╨░ ╨┤╨╛╨╝╨░╤И╨╜╨╡╨╝ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║[9D[K
+╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╕ ╨▓╨░╨╢╨╜╤Л╨╝ ╤Н╤В╨░╨┐╨╛╨╝ ╨╖╨░╤Й╨╕╤В╤Л ╨┤╨░╨╜╨╜╤Л╤Е ╨╛╤В ╨┐╨╛╤В╨╡╤А╨╕ ╨╕ ╨┐╨╛╨▓╤А╨╡╨╢╨┤╨╡╨╜╨╕╤П ╨╛╨▒╨╛╤А╤Г╨┤╨╛╨▓╨░╨╜╨╕╤П[12D[K
+╨╛╨▒╨╛╤А╤Г╨┤╨╛╨▓╨░╨╜╨╕╤П ╨╕╨╖-╨╖╨░ ╤А╨░╨╖╨╗╨╕╤З╨╜╤Л╤Е ╤Д╨╛╤А╤Б-╨╝╨░╨╢╨╛╤А╨╜╤Л╤Е ╨╛╨▒╤Б╤В╨╛╤П╤В╨╡╨╗╤М╤Б╤В╨▓ ╨▓╨║╨╗╤О╤З╨░╤П ╨▓╨╜╨╡╨╖╨░╨┐╨╜╨╛╨╡ [K
+╨╖╨░╨▓╨╡╤А╤И╨╡╨╜╨╕╨╡ ╤А╨░╨▒╨╛╤В╤Л ╤Б╨╕╤Б╤В╨╡╨╝╤Л ╨▒╨╡╨╖ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╕╤П ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╤П ╨┤╨╕╤Б╨║╨╛╨▓. ╨Я╨╛╤В╨╡╤А╤П ╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕[9D[K
+╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕╨╕ ╨╝╨╛╨╢╨╡╤В ╨┐╤А╨╛╨╕╨╖╨╛╨╣╤В╨╕ ╨▓╨╜╨╡╨╖╨░╨┐╨╜╨╛ ╨╕╨╖-╨╖╨░ ╤Б╨▒╨╛╤П ╨┤╨╕╤Б╨║╨░, ╨┤╨╡╨╣╤Б╤В╨▓╨╕╤П ╨▓╨╕╤А╤Г╤Б╨╛╨▓ ╨╕╨╗╨╕ [K
+╤Б╨╗╤Г╤З╨░╨╣╨╜╨╛╨│╨╛ ╤Г╨┤╨░╨╗╨╡╨╜╨╕╤П ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╨╡╨╝ ╨▓╨░╨╢╨╜╤Л╤Е ╨╝╨░╤В╨╡╤А╨╕╨░╨╗╨╛╨▓ ╨▒╨╡╨╖ ╨┐╤А╨╡╨┤╨▓╨░╤А╨╕╤В╨╡╨╗╤М╨╜╨╛╨╣ ╤Б╨╕╨╜[3D[K
+╤Б╨╕╨╜╤Е╤А╨╛╨╜╨╕╨╖╨░╤Ж╨╕╨╕ ╤Б ╨╛╨▒╨╗╨░╨║╨╛╨╝ ╨╕ ╨╕╤Б╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╨╜╨╕╤П ╨╜╨░╨┤╨╡╨╢╨╜╨╛╨│╨╛ ╨▓╨╜╨╡╤И╨╜╨╡╨│╨╛ ╨╜╨░╨║╨╛╨┐╨╕╤В╨╡╨╗╤П ╨┤╨╗╤П ╨╗[1D[K
+╨╗╨╛╨║╨░╨╗╤М╨╜╨╛╨│╨╛ ╤Е╤А╨░╨╜╨╡╨╜╨╕╤П ╤А╨╡╨╖╨╡╤А╨▓╨╜╤Л╤Е ╨║╨╛╨┐╨╕╨╣ ╤Д╨░╨╣╨╗╨╛╨▓ ╤Б╨╕╤Б╤В╨╡╨╝╤Л ╨┤╨╛╨╝╨░ ╤А╨╡╨│╤Г╨╗╤П╤А╨╜╨╛ ╨┐╤А╨╛╨▓╨╡╤А╤П╨╣╤В[9D[K
+╨┐╤А╨╛╨▓╨╡╤А╤П╨╣╤В╨╡ ╨╜╨░╨╗╨╕╤З╨╕╨╡ ╤Б╨▓╨╛╨▒╨╛╨┤╨╜╨╛╨│╨╛ ╨╝╨╡╤Б╤В╨░ ╨╜╨░ ╨╜╨░╨║╨╛╨┐╨╕╤В╨╡╨╗╨╡ ╤З╤В╨╛╨▒╤Л ╨╛╨▒╨╡╤Б╨┐╨╡╤З╨╕╤В╤М ╨▒╤Л╤Б╤В╤А╨╛╨╡ [K
+╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛╤Б╨╗╨╡ ╤Б╨▒╨╛╤П."
+    (Count: roughly 105 words). I need more. 
+    Let's add a bit about the rules and verification process to reach close[5D[K
+closer count target without lying stats.
+    
+    "╨а╨╡╨╖╨╡╤А╨▓╨╜╨╛╨╡ ╨║╨╛╨┐╨╕╤А╨╛╨▓╨░╨╜╨╕╨╡ ╤Д╨░╨╣╨╗╨╛╨▓ ╨╜╨░ ╨┤╨╛╨╝╨░╤И╨╜╨╡╨╝ ╨║╨╛╨╝╨┐╤М╤О╤В╨╡╤А╨╡ ╤П╨▓╨╗╤П╨╡╤В╤Б╤П ╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║[9D[K
+╨║╤А╨╕╤В╨╕╤З╨╡╤Б╨║╨╕ ╨▓╨░╨╢╨╜╤Л╨╝ ╤Н╤В╨░╨┐╨╛╨╝ ╨╖╨░╤Й╨╕╤В╤Л ╨┤╨░╨╜╨╜╤Л╤Е ╨╛╤В ╨┐╨╛╤В╨╡╤А╨╕ ╨╕ ╨┐╨╛╨▓╤А╨╡╨╢╨┤╨╡╨╜╨╕╤П ╨╛╨▒╨╛╤А╤Г╨┤╨╛╨▓╨░╨╜╨╕╤П[12D[K
+╨╛╨▒╨╛╤А╤Г╨┤╨╛╨▓╨░╨╜╨╕╤П ╨╕╨╖-╨╖╨░ ╤А╨░╨╖╨╗╨╕╤З╨╜╤Л╤Е ╤Д╨╛╤А╤Б-╨╝╨░╨╢╨╛╤А╨╜╤Л╤Е ╨╛╨▒╤Б╤В╨╛╤П╤В╨╡╨╗╤М╤Б╤В╨▓ ╨▓╨║╨╗╤О╤З╨░╤П ╨▓╨╜╨╡╨╖╨░╨┐╨╜╨╛╨╡ [K
+╨╖╨░╨▓╨╡╤А╤И╨╡╨╜╨╕╨╡ ╤А╨░╨▒╨╛╤В╤Л ╤Б╨╕╤Б╤В╨╡╨╝╤Л ╨▒╨╡╨╖ ╤Б╨╛╤Е╤А╨░╨╜╨╡╨╜╨╕╤П ╤Б╨╛╤Б╤В╨╛╤П╨╜╨╕╤П ╨┤╨╕╤Б╨║╨╛╨▓ ╨╕╨╗╨╕ ╤Д╨╛╤А╨╝╨░╤В╨╕╤А╨╛╨▓╨░╨╜╨╕[13D[K
+╤Д╨╛╤А╨╝╨░╤В╨╕╤А╨╛╨▓╨░╨╜╨╕╤П ╨╢╨╡╤Б╤В╨║╨╛╨│╨╛ ╨┤╨╕╤Б╨║╨░ ╤Б╨╗╤Г╤З╨░╨╣╨╜╨╛ ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╨╡╨╝. ╨Я╨╛╤В╨╡╤А╤П ╨╕╨╜╤Д╨╛╤А╨╝╨░╤Ж╨╕╨╕ ╨╝╨╛╨╢[3D[K
+╨╝╨╛╨╢╨╡╤В ╨┐╤А╨╛╨╕╨╖╨╛╨╣╤В╨╕ ╨▓╨╜╨╡╨╖╨░╨┐╨╜╨╛ ╨╕╨╖-╨╖╨░ ╤Б╨▒╨╛╤П ╨┤╨╕╤Б╨║╨░, ╨┤╨╡╨╣╤Б╤В╨▓╨╕╤П ╨▓╨╕╤А╤Г╤Б╨╛╨▓ ╨╕╨╗╨╕ ╤Б╨╗╤Г╤З╨░╨╣╨╜╨╛╨│╨╛ [K
+╤Г╨┤╨░╨╗╨╡╨╜╨╕╤П ╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╤В╨╡╨╗╨╡╨╝ ╨▓╨░╨╢╨╜╤Л╤Е ╨╝╨░╤В╨╡╤А╨╕╨░╨╗╨╛╨▓ ╨▒╨╡╨╖ ╨┐╤А╨╡╨┤╨▓╨░╤А╨╕╤В╨╡╨╗╤М╨╜╨╛╨╣ ╤Б╨╕╨╜╤Е╤А╨╛╨╜╨╕╨╖╨░╤Ж╨╕╨╕ [K
+╤Б ╨╛╨▒╨╗╨░╨║╨╛╨╝ ╨╕ ╨╕╤Б╨┐╨╛╨╗╤М╨╖╨╛╨▓╨░╨╜╨╕╤П ╨╜╨░╨┤╨╡╨╢╨╜╨╛╨│╨╛ ╨▓╨╜╨╡╤И╨╜╨╡╨│╨╛ ╨╜╨░╨║╨╛╨┐╨╕╤В╨╡╨╗╤П ╨┤╨╗╤П ╨╗╨╛╨║╨░╨╗╤М╨╜╨╛╨│╨╛ ╤Е╤А╨░╨╜[4D[K
+╤Е╤А╨░╨╜╨╡╨╜╨╕╤П ╤А╨╡╨╖╨╡╤А╨▓╨╜╤Л╤Е ╨║╨╛╨┐╨╕╨╣ ╤Д╨░╨╣╨╗╨╛╨▓ ╤Б╨╕╤Б╤В╨╡╨╝╤Л ╨┤╨╛╨╝╨░ ╤А╨╡╨│╤Г╨╗╤П╤А╨╜╨╛ ╨┐╤А╨╛╨▓╨╡╤А╤П╨╣╤В╨╡ ╨╜╨░╨╗╨╕╤З╨╕╨╡ ╤Б[1D[K
+╤Б╨▓╨╛╨▒╨╛╨┤╨╜╨╛╨│╨╛ ╨╝╨╡╤Б╤В╨░ ╨╜╨░ ╨╜╨░╨║╨╛╨┐╨╕╤В╨╡╨╗╨╡ ╤З╤В╨╛╨▒╤Л ╨╛╨▒╨╡╤Б╨┐╨╡╤З╨╕╤В╤М ╨▒╤Л╤Б╤В╤А╨╛╨╡ ╨▓╨╛╤Б╤Б╤В╨░╨╜╨╛╨▓╨╗╨╡╨╜╨╕╨╡ ╨┐╨╛╤Б╨╗[4D[K
+╨┐╨╛╤Б╨╗╨╡ ╤Б╨▒╨╛╤П."
+    I think it's safer to write a slightly shorter sentence structure but e[1D[K
+ensure word count is high. 
+    Actually, exact counting of Russian words in generation can be tricky d[1D[K
+due to tokenization models vs actual space delimiters. "╨Т╨╡╤А╨╜╨╕... ╨┐╤А╨╕╨╝╨╡╤А╨╜╨╛ ╨╜[1D[K
+╨╜╨░ 120 ╤Б╨╗╨╛╨▓". If the generated text looks like roughly half A4 page it's go[2D[K
+good. I'll make sure it feels long enough.
+
+    Let's check constraint: `photo_keyword` if filled, must be English.
+    Constraint: No Chinese words (obviously).
+    
+    Final JSON string construction without markdown formatting around it. J[1D[K
+Just raw text starting with `{`. 
+    Wait, instructions say "╨Т╨╡╤А╨╜╨╕ ╤В╨╛╨╗╤М╨║╨╛ ╨╛╨┤╨╕╨╜ ╨║╨╛╤А╤А╨╡╨║╤В╨╜╤Л╨╣ JSON-╨╛╨▒╤К╨╡╨║╤В...". U[1D[K
+Usually this means the output should *be* that object. But since I am a cha[3D[K
+chat model, sometimes adding code blocks is safer? The prompt says "╨▒╨╡╨╖ Mar[3D[K
+Markdown ╨╕ ╨┐╨╛╤П╤Б╨╜╨╡╨╜╨╕╨╣" (without markdown and explanations). So no ```json ..[2D[K
+... ```. Just raw `{` at start of first line.
+    
+    Wait, looking at previous instructions in similar tasks: if the user as[2D[K
+asks for JSON object without markdown, I should
+
