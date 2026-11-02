@@ -1,23 +1,32 @@
-AI VIDEO FACTORY RU — STAGE 3 INSTALLER
+AI Video Factory RU — Discovery Stage 4
 
-1. Extract the complete ZIP directly into the project root:
+1. Распакуйте весь архив прямо в корень проекта:
    D:\my_projects\AI_Video_Factory_RU\video-farm
-   (the folder containing pyproject.toml and src\video_farm).
-   Allow Windows to replace install_stage3.ps1 and the stage3 folder if asked.
+   Это папка, в которой находятся pyproject.toml, src, tests и .venv.
 
-2. Open PowerShell in that project root and run:
-   .\install_stage3.ps1
+2. Откройте PowerShell в этой папке и выполните:
+   .\install_stage4.ps1
 
-The PowerShell file is only a launcher. Matching, backups, installation, syntax
-checks and tests are handled by the included Python installer. It uses
-.venv\Scripts\python.exe when present.
+Установщик создаёт резервные копии, устанавливает модуль, тесты и документ,
+добавляет команду discover-editor и расширяет 30-дневную очистку. При ошибке
+изменённые исходники восстанавливаются автоматически.
 
-Changed files are backed up under backups\discovery-stage3-<timestamp>.
-If a check fails, the original files are restored automatically. The installer
-does not edit .env, virtual environments, model caches or discovery.json, and
-does not call the YouTube API.
+3. После успешной установки создайте HTML-панель:
+   .\.venv\Scripts\python.exe -m video_farm.cli discover-editor
 
-After successful installation, run:
-   .\.venv\Scripts\python.exe -m video_farm.cli discover-analyze
+4. Откройте файл:
+   output\discovery\editor.html
 
-Expected outputs: output\discovery\topics.json and topics.md
+В панели используйте поиск, фильтры, сортировку и пагинацию. Редакторские
+решения экспортируются через кнопку «Экспортировать отбор JSON». Рекомендуется
+сохранять editorial.json в output\discovery и импортировать его при следующем
+открытии панели для того же исходного Discovery-отчёта.
+
+ВАЖНО: editor.html содержит данные YouTube API. Обновите или удалите его, а
+также editorial.json, до даты, показанной в панели. discover-cleanup удаляет
+эти файлы из output\discovery после истечения срока. Если экспорт сохранён в
+другую папку, удалите или обновите ту копию вручную.
+
+Панель автономная: без сервера, CDN, внешних библиотек, запросов к сети и
+обращений к YouTube API. Код не добавляет семантическую классификацию и не
+рассчитывает трендовые показатели.

@@ -308,6 +308,9 @@ def purge_expired_discovery_output(out_dir: Path, *, now: dt.datetime | None = N
     # Stage 3 reports contain copied YouTube API fields and share the same deadline.
     (out_dir / "topics.json").unlink(missing_ok=True)
     (out_dir / "topics.md").unlink(missing_ok=True)
+    # Stage 4 page embeds raw YouTube API fields; editor export contains video IDs.
+    (out_dir / "editor.html").unlink(missing_ok=True)
+    (out_dir / "editorial.json").unlink(missing_ok=True)
     return True
 
 

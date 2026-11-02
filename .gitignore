@@ -14,3 +14,14 @@ build/
 *.egg-info/
 data/models/
 .kokoro-venv/
+@"
+# Backups and build artifacts
+backups/
+*.zip
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+"@ | Out-File -Encoding utf8 -Append .gitignore

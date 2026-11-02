@@ -6,6 +6,7 @@ from .common import ROOT, ensure_dir, write_json, read_json
 from .discovery import (discover_youtube, purge_expired_discovery_output,
                         DEFAULT_MAX_RESULTS, DEFAULT_MAX_PAGES, DEFAULT_SEARCH_CALL_BUDGET)
 from .discovery_analysis import analyze_discovery
+from .discovery_editor import build_review_page
 from .content import generate_topics, generate_script
 from .tts import synthesize
 from .assets import download_assets
@@ -149,6 +150,18 @@ def cmd_discover_analyze(args: argparse.Namespace) -> int:
     print(f"Редакторские подборки: {out / 'topics.json'} и {out / 'topics.md'}")
     print(f"Обработано уникальных видео: {report['candidate_count']}")
     print("Автоматическая семантическая классификация и трендовые метрики не выполняются.")
+    return 0
+
+
+def cmd_discover_editor(args: argparse.Namespace) -> int:
+    source = _path(args.input)
+    out = _path(args.out)
+    page = out / "editor.html"
+    result = build_review_page(source, page)
+    print(f"Редакторская панель: {page}")
+    print(f"Уникальных видео загружено: {result['candidate_count']}")
+    print(f"Данные обновить или удалить до: {result['source_refresh_or_delete_by_utc']}")
+    print("Откройте editor.html в браузере. Страница работает локально и не вызывает YouTube API.")
     return 0
 
 
@@ -297,6 +310,10 @@ def build_parser() -> argparse.ArgumentParser:
     da.add_argument("--out", default="output/discovery", help="Output directory for topics.json and topics.md")
     da.add_argument("--limit", type=int, default=20, help="Maximum videos in each list (1–100)")
     da.set_defaults(func=cmd_discover_analyze)
+    de = sub.add_parser("discover-editor", help="Создать локальную HTML-панель ручного отбора всех видео Discovery")
+    de.add_argument("--input", default="output/discovery/discovery.json", help="Исходный discovery.json schema 2.0")
+    de.add_argument("--out", default="output/discovery", help="Каталог для editor.html")
+    de.set_defaults(func=cmd_discover_editor)
     disc_cleanup = sub.add_parser("discover-cleanup", help="Удалить просроченный отчёт discover старше 30 дней")
     disc_cleanup.add_argument("--out", default="output/discovery", help="Каталог отчётов discover")
     disc_cleanup.set_defaults(func=cmd_discover_cleanup)
