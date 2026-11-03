@@ -1,28 +1,33 @@
+# Python environments and caches
 .venv/
+venv/
+.kokoro-venv/
 __pycache__/
 .pytest_cache/
+*.py[cod]
+
+# Secrets and local configuration
 .env
-*.pyc
+.env.*
+!.env.example
+
+# Generated media, models, and runtime data
 data/cache/
 data/broll/*
 data/images/*
-data/audio/*
+data/audio/
+data/models/
+data/usage/youtube_search_quota.json
+
+# Generated output
 output/**
 !output/.gitkeep
 
+# Local backups and build artifacts
+backups/
+*.zip
 build/
 *.egg-info/
-data/models/
-.kokoro-venv/
-@"
-# Backups and build artifacts
-backups/
-backups/*
-*.zip
 
-# Python
-__pycache__/
-*.pyc
-.venv/
-venv/
-"@ | Out-File -Encoding utf8 -Append .gitignore
+# User-specific editorial exports
+/editorial*.json
