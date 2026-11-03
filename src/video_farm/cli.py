@@ -136,10 +136,30 @@ def cmd_discover(args: argparse.Namespace) -> int:
     print(f"Готово: {out / 'discovery.json'} и {out / 'discovery.md'}")
     print(f"Уникальных видео: {report['candidate_count']}")
     print(f"Поисковых вызовов search.list: {report['quota_usage']['search_list_calls']} / {args.search_call_budget}")
+    daily = report["quota_usage"]["search_list_daily_accounting"]
+    print(f"Учтено за Pacific-день {daily['pacific_date']}: {daily['total_accounted_calls']} / {daily['daily_ceiling']}; осталось {daily['remaining']}")
     print(f"Запросов videos.list: {report['quota_usage']['videos_list_calls']}")
     if report['search_budget_exhausted']:
         print("ВНИМАНИЕ: достигнут лимит поисковых вызовов; отчёт может быть неполным.")
     print("Показаны исходные данные API; скорость роста и трендовый балл не рассчитываются.")
+    return 0
+
+
+def cmd_discover_quota(args: argparse.Namespace) -> int:
+    s = load_settings()
+    from .discovery_quota import YouTubeSearchQuotaLedger
+    ledger = YouTubeSearchQuotaLedger(s.data_dir / "usage" / "youtube_search_quota.json")
+    if args.external_search_calls is not None:
+        ledger.set_external_usage(args.external_search_calls)
+        print(f"Внешние вызовы search.list за текущий Pacific-день записаны: {args.external_search_calls}")
+    status = ledger.status()
+    print(f"Pacific-дата: {status['pacific_date']} ({status['timezone']})")
+    print(f"Вызовы приложения: {status['application_attempts']}")
+    print(f"Внешнее использование: {status['external_calls']}")
+    print(f"Всего учтено: {status['total_accounted_calls']} / {status['daily_ceiling']}")
+    print(f"Остаток локального лимита: {status['remaining']}")
+    print(f"Журнал: {status['ledger_path']}")
+    print("Примечание: локальный журнал не видит обращения из Google Cloud Console, других ПК и приложений без ручной сверки.")
     return 0
 
 
@@ -301,10 +321,13 @@ def build_parser() -> argparse.ArgumentParser:
     disc.add_argument("--region", default="RU", help="Регион доступности российской выдачи, ISO 3166-1 alpha-2")
     disc.add_argument("--language", default="ru", help="Языковой приоритет российской выдачи")
     disc.add_argument("--max-results", type=int, default=DEFAULT_MAX_RESULTS, help="Число результатов на страницу (1–50)")
-    disc.add_argument("--max-pages", type=int, default=DEFAULT_MAX_PAGES, help="Максимум страниц на поисковый набор (1–3); по умолчанию 2")
+    disc.add_argument("--max-pages", type=int, default=DEFAULT_MAX_PAGES, help="Максимум страниц на поисковый набор (1–3); по умолчанию 1; дополнительные страницы используют остаток дневного бюджета")
     disc.add_argument("--search-call-budget", type=int, default=DEFAULT_SEARCH_CALL_BUDGET, help="Лимит вызовов search.list на запуск (1–100); по умолчанию 90")
     disc.add_argument("--out", default="output/discovery", help="Каталог отчётов (файлы discovery.json и discovery.md перезаписываются)")
     disc.set_defaults(func=cmd_discover)
+    dq = sub.add_parser("discover-quota", help="Проверить и сверить дневной учёт search.list")
+    dq.add_argument("--external-search-calls", type=int, default=None, help="Фактическое число search.list за текущий Pacific-день из других приложений/ПК")
+    dq.set_defaults(func=cmd_discover_quota)
     da = sub.add_parser("discover-analyze", help="Create editorial lists from a saved discovery.json")
     da.add_argument("--input", default="output/discovery/discovery.json", help="Source discovery.json, schema 2.0")
     da.add_argument("--out", default="output/discovery", help="Output directory for topics.json and topics.md")

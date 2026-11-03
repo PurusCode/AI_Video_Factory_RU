@@ -1,0 +1,365 @@
+{
+  "schema_version": "1.0",
+  "application": "AI Video Factory RU",
+  "updated_at": "2026-11-03",
+  "policy": {
+    "manual_assignment_only": true,
+    "no_user_on_camera": true,
+    "no_user_recorded_voice": true,
+    "no_interviews_or_guests": true,
+    "no_field_filming": true,
+    "no_physical_experiments": true,
+    "ai_tts_allowed": true,
+    "external_api_requires_preapproval": true,
+    "auto_publish": false,
+    "youtube_api_derived_classification": false
+  },
+  "profile_statuses": [
+    "partially_implemented",
+    "conditional_on_quality_and_rights",
+    "requires_new_subsystem",
+    "future_experimental"
+  ],
+  "profiles": [
+    {
+      "id": "narrated_explainer",
+      "title": "Объясняющий ролик",
+      "priority": 1,
+      "status": "partially_implemented",
+      "summary": "Оригинальное объяснение понятия, события или технологии с AI narration, графикой, иллюстрациями и B-roll.",
+      "asset_strategies": [
+        "original_graphics",
+        "licensed_stock",
+        "generated_still",
+        "ai_tts"
+      ],
+      "required_capabilities": [
+        "script_generation",
+        "fact_check",
+        "tts",
+        "slide_render",
+        "ffmpeg_assembly"
+      ],
+      "known_blockers": [
+        "full_production_e2e_not_accepted",
+        "tts_commercial_and_distribution_rights_open"
+      ]
+    },
+    {
+      "id": "stock_mini_documentary",
+      "title": "Мини-документалистика",
+      "priority": 1,
+      "status": "conditional_on_quality_and_rights",
+      "summary": "Оригинальное документальное повествование с первичными источниками, архивными или лицензированными иллюстрациями и B-roll.",
+      "asset_strategies": [
+        "public_domain_archive",
+        "licensed_stock",
+        "original_graphics",
+        "ai_tts"
+      ],
+      "required_capabilities": [
+        "source_research",
+        "fact_check",
+        "rights_audit",
+        "tts",
+        "slide_render",
+        "ffmpeg_assembly"
+      ],
+      "known_blockers": [
+        "source_and_asset_coverage",
+        "tts_commercial_and_distribution_rights_open"
+      ]
+    },
+    {
+      "id": "static_data_visualization",
+      "title": "Инфографика и аналитика",
+      "priority": 1,
+      "status": "partially_implemented",
+      "summary": "Сравнения и статистические объяснения на independently sourced datasets; current slide renderer can produce static chart-like scenes.",
+      "asset_strategies": [
+        "verified_data_chart",
+        "original_graphics",
+        "ai_tts"
+      ],
+      "required_capabilities": [
+        "dataset_provenance",
+        "fact_check",
+        "static_chart_render",
+        "tts",
+        "ffmpeg_assembly"
+      ],
+      "known_blockers": [
+        "no_validated_dataset_ingestion_contract",
+        "animated_charts_not_implemented",
+        "tts_commercial_and_distribution_rights_open"
+      ],
+      "restrictions": [
+        "Do not derive trend scores or categorization from YouTube API Data without applicable approval."
+      ]
+    },
+    {
+      "id": "historical_timeline",
+      "title": "Историческая хронология",
+      "priority": 1,
+      "status": "conditional_on_quality_and_rights",
+      "summary": "Sequential visual explanation from verified dated events, maps, archival images and graphics.",
+      "asset_strategies": [
+        "public_domain_archive",
+        "licensed_stock",
+        "original_graphics",
+        "ai_tts"
+      ],
+      "required_capabilities": [
+        "event_source_table",
+        "date_validation",
+        "timeline_render",
+        "rights_audit",
+        "tts"
+      ],
+      "known_blockers": [
+        "timeline_renderer_not_implemented",
+        "asset_rights_review",
+        "tts_commercial_and_distribution_rights_open"
+      ]
+    },
+    {
+      "id": "stock_visual_essay",
+      "title": "Визуальное эссе из лицензированных материалов",
+      "priority": 1,
+      "status": "conditional_on_quality_and_rights",
+      "summary": "Original narration over licensed stock images/video; no personal filming or presenter.",
+      "asset_strategies": [
+        "licensed_stock",
+        "original_graphics",
+        "ai_tts"
+      ],
+      "required_capabilities": [
+        "stock_search",
+        "rights_manifest",
+        "tts",
+        "ffmpeg_assembly"
+      ],
+      "known_blockers": [
+        "asset_availability_and_license_review",
+        "tts_commercial_and_distribution_rights_open"
+      ]
+    },
+    {
+      "id": "software_tutorial",
+      "title": "Автоматическая демонстрация программы",
+      "priority": 2,
+      "status": "requires_new_subsystem",
+      "summary": "Reproducible browser/desktop workflow recorded automatically with captions and AI narration.",
+      "asset_strategies": [
+        "screen_capture",
+        "original_graphics",
+        "ai_tts"
+      ],
+      "required_capabilities": [
+        "browser_or_desktop_automation",
+        "screen_capture",
+        "secret_redaction",
+        "ui_version_manifest",
+        "tts"
+      ],
+      "known_blockers": [
+        "screen_capture_not_integrated",
+        "secret_redaction_not_implemented"
+      ]
+    },
+    {
+      "id": "map_explainer",
+      "title": "География и карты",
+      "priority": 2,
+      "status": "requires_new_subsystem",
+      "summary": "Geographic explanation with maps and data whose use terms are recorded.",
+      "asset_strategies": [
+        "original_graphics",
+        "licensed_stock",
+        "ai_tts"
+      ],
+      "required_capabilities": [
+        "geodata_provider",
+        "map_renderer",
+        "map_license_manifest",
+        "tts"
+      ],
+      "known_blockers": [
+        "map_renderer_not_implemented",
+        "geodata_licensing_not_audited"
+      ]
+    },
+    {
+      "id": "ai_generated_scenes",
+      "title": "ИИ-видеосцены",
+      "priority": 2,
+      "status": "requires_new_subsystem",
+      "summary": "Short generated video scenes created through an approved provider API and assembled locally.",
+      "asset_strategies": [
+        "generated_video",
+        "ai_tts",
+        "original_graphics"
+      ],
+      "required_capabilities": [
+        "provider_adapter",
+        "cost_guard",
+        "async_task_polling",
+        "download_and_hash",
+        "rights_audit",
+        "moderation_review"
+      ],
+      "known_blockers": [
+        "no_provider_selected",
+        "no_provider_adapter",
+        "regional_and_payment_review_required"
+      ]
+    },
+    {
+      "id": "procedural_3d",
+      "title": "Процедурная 3D-анимация",
+      "priority": 3,
+      "status": "future_experimental",
+      "summary": "Programmatically generated Blender scenes rendered by a Python-controlled background process.",
+      "asset_strategies": [
+        "procedural_3d",
+        "ai_tts",
+        "original_graphics"
+      ],
+      "required_capabilities": [
+        "blender_python",
+        "render_queue",
+        "performance_benchmark",
+        "asset_manifest"
+      ],
+      "known_blockers": [
+        "not_integrated",
+        "target_hardware_performance_unknown"
+      ]
+    },
+    {
+      "id": "illustrated_story",
+      "title": "Иллюстрированная история",
+      "priority": 3,
+      "status": "future_experimental",
+      "summary": "Original narrative illustrated through sequences of generated images with manual continuity review.",
+      "asset_strategies": [
+        "generated_still",
+        "generated_video",
+        "ai_tts"
+      ],
+      "required_capabilities": [
+        "image_provider_adapter",
+        "character_reference_management",
+        "continuity_review",
+        "rights_audit",
+        "tts"
+      ],
+      "known_blockers": [
+        "not_integrated",
+        "character_consistency_and_rights_need_testing"
+      ]
+    }
+  ],
+  "reference_formats": [
+    "explainer",
+    "documentary",
+    "interview",
+    "podcast",
+    "vlog",
+    "reaction",
+    "review",
+    "tutorial",
+    "screen_recording",
+    "live_stream",
+    "gameplay",
+    "match_or_event_footage",
+    "animation",
+    "music_or_performance",
+    "compilation",
+    "news_reportage",
+    "other",
+    "unknown"
+  ],
+  "production_fit": [
+    "pending_review",
+    "suitable_now",
+    "suitable_after_research",
+    "suitable_after_extension",
+    "conditional_on_rights",
+    "unsuitable"
+  ],
+  "blockers": [
+    "requires_on_camera_presenter",
+    "requires_human_recorded_voice",
+    "requires_interview_guest",
+    "requires_field_filming",
+    "requires_physical_experiment",
+    "requires_live_performance",
+    "requires_unlicensed_third_party_footage",
+    "requires_gameplay_capture",
+    "facts_not_verifiable",
+    "no_usable_assets",
+    "unavailable_api_or_tool",
+    "budget_exceeds_limit",
+    "other"
+  ],
+  "rights_status": [
+    "pending",
+    "verified",
+    "not_applicable",
+    "blocked"
+  ],
+  "fact_check_status": [
+    "pending",
+    "verified",
+    "partially_verified",
+    "failed"
+  ],
+  "budget_status": [
+    "not_estimated",
+    "within_limit",
+    "requires_approval",
+    "over_limit"
+  ],
+  "asset_strategies": [
+    "licensed_stock",
+    "public_domain_archive",
+    "original_graphics",
+    "verified_data_chart",
+    "screen_capture",
+    "generated_still",
+    "generated_video",
+    "procedural_3d",
+    "ai_tts",
+    "text_only"
+  ],
+  "quota_guard": {
+    "api_project_scope": "primary_youtube_api_project_only",
+    "default_search_list_daily_limit": 100,
+    "application_daily_ceiling": 90,
+    "reserve": 10,
+    "standard_discovery_calls": 80,
+    "timezone": "America/Los_Angeles",
+    "reset": "midnight Pacific Time",
+    "ledger_path": "data/usage/youtube_search_quota.json",
+    "count_attempt_before_http_request": true,
+    "include_failed_and_invalid_attempts": true,
+    "external_usage_reconciliation_required": true,
+    "rotate_to_other_google_cloud_project": false
+  },
+  "tts_assessments": {
+    "kokoro_ru_v2_dima": {
+      "user_quality_rating": 4.0,
+      "required_quality_rating": 4.0,
+      "quality_gate": "met_by_user_assessment",
+      "cli_integration": "not_integrated",
+      "commercial_and_distribution_rights": "open"
+    },
+    "piper_dmitri": {
+      "user_quality_rating": 2.5,
+      "required_quality_rating": 4.0,
+      "quality_gate": "not_met",
+      "commercial_and_distribution_rights": "open"
+    }
+  }
+}

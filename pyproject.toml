@@ -16,6 +16,7 @@ dependencies = [
   "Pillow>=10.4.0",
   "soundfile>=0.12.1",
   "numpy>=1.26.0",
+  "tzdata>=2025.2",
 ]
 
 [project.optional-dependencies]

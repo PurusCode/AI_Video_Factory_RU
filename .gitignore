@@ -17,6 +17,7 @@ data/models/
 @"
 # Backups and build artifacts
 backups/
+backups/*
 *.zip
 
 # Python
