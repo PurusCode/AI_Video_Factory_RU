@@ -1,0 +1,9 @@
+numpy==2.5.4
+onnxruntime==1.31.0
+soundfile==0.14.0
+huggingface_hub==2.3.0
+transformers==5.20.2
+phonemizer-fork==3.3.2
+espeakng-loader==0.2.4
+misaki @ git+https://github.com/hexgrad/misaki.git@fba1236595f2d2bf21d414ba6e57d25256afada3
+ruaccent @ git+https://github.com/Den4ikAI/ruaccent.git@39543da92705ab26103897eac7bc512c357449bd
