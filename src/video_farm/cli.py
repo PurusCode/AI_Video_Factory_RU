@@ -75,44 +75,63 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     else:
         print(f"Числовая нормализация TTS: OK ({normalization_status})")
 
-    piper_exe = shutil.which("piper")
-    piper_module = False
-    try:
-        __import__("piper")
-        piper_module = True
-    except Exception:
-        pass
-    try:
-        piper_version = importlib.metadata.version("piper-tts")
-    except importlib.metadata.PackageNotFoundError:
-        piper_version = None
-    model = s.data_dir / "models" / "piper" / f"{s.tts_speaker}.onnx"
-    model_cfg = model.with_suffix(model.suffix + ".json")
-    if piper_exe or piper_module:
-        print(f"Piper TTS: OK ({piper_version or 'версия пакета не определена'}; {piper_exe or 'python -m piper'})")
-    else:
-        print("Piper TTS: НЕ НАЙДЕН")
-        problems.append("Не установлен piper-tts. Выполните install.ps1 из проекта или установите .[tts].")
-    if model.is_file() and model.stat().st_size >= 1024 and model_cfg.is_file() and model_cfg.stat().st_size >= 100:
+    print(f"TTS engine: {s.tts_engine} / speaker={s.tts_speaker}")
+    if s.tts_engine != "kokoro" or s.tts_speaker != "dima":
+        problems.append("Для production требуется TTS_ENGINE=kokoro и TTS_SPEAKER=dima.")
+
+    required_packages = (
+        ("onnxruntime", "ONNX Runtime"),
+        ("numpy", "NumPy"),
+        ("soundfile", "SoundFile"),
+        ("huggingface-hub", "Hugging Face Hub"),
+        ("ruaccent", "RUAccent"),
+        ("misaki", "Misaki"),
+        ("phonemizer-fork", "phonemizer-fork"),
+        ("espeakng-loader", "espeakng-loader"),
+    )
+    for package, label in required_packages:
         try:
-            cfg = json.loads(model_cfg.read_text(encoding="utf-8"))
-            rate = int(cfg.get("audio", {}).get("sample_rate", 22050))
-            if rate <= 0:
-                raise ValueError("некорректная частота дискретизации")
-            print(f"Piper voice: кэширован ({s.tts_speaker}; {model.stat().st_size:,} байт; {rate} Hz)")
-        except Exception as exc:
-            problems.append(f"Конфигурация голоса Piper повреждена: {model_cfg} ({exc})")
-    elif model.exists() or model_cfg.exists():
-        problems.append(f"Кэш голоса Piper неполный или повреждён: ожидались {model.name} и {model_cfg.name}.")
+            version = importlib.metadata.version(package)
+            print(f"{label}: OK ({version})")
+        except importlib.metadata.PackageNotFoundError:
+            problems.append(f"Не установлен {label}. Выполните install.ps1 для установки production-зависимостей Kokoro.")
+
+    model_root = s.data_dir / "models" / "kokoro-ru-v2-onnx"
+    model_file = model_root / "onnx" / "model_dima_quantized.onnx"
+    voice_file = model_root / "voices" / "dima.bin"
+    if model_file.is_file() and voice_file.is_file():
+        print(f"Kokoro model: кэширована ({model_file.stat().st_size:,} байт; Dima voice pack найден)")
     else:
-        print(f"Piper voice: не кэширован ({s.tts_speaker}); первая озвучка скачает файлы в {model.parent}")
+        print(f"Kokoro model: ещё не загружена; первая команда tts скачает revision d649c57 в {model_root}")
+
+    accent_root = s.data_dir / "models" / "ruaccent-accentuator"
+    accent_required = (
+        accent_root / "dictionary",
+        accent_root / "nn" / "nn_accent",
+        accent_root / "nn" / "nn_stress_usage_predictor",
+        accent_root / "nn" / "nn_yo_homograph_resolver",
+    )
+    missing_accent = [str(path) for path in accent_required if not path.is_dir()]
+    if missing_accent:
+        problems.append(
+            "Не найдены локальные данные RUAccent: " + ", ".join(missing_accent)
+            + ". Production TTS не будет запускаться без этих данных."
+        )
+    else:
+        print(f"RUAccent assets: OK ({accent_root})")
+
+    stress_config = s.root / "data" / "kokoro_stress_config.json"
+    if stress_config.is_file():
+        print(f"Kokoro stress config: OK ({stress_config})")
+    else:
+        problems.append(f"Не найден файл контекстных ударений Kokoro: {stress_config}")
 
     if problems:
         print("\nПроблемы:")
         for problem in problems:
             print(f"  - {problem}")
         return 1
-    print("\nБазовые зависимости в порядке. Для первого использования голоса Piper потребуется интернет.")
+    print("\nБазовые зависимости в порядке. При первом запуске TTS потребуется интернет для загрузки модели Kokoro. Локальные RUAccent assets должны быть заранее подготовлены в data/models/ruaccent-accentuator.")
     return 0
 
 
@@ -275,7 +294,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         print("[1/6] Генерация сценария...")
         generate_script(s, args.topic, script_path, _path(args.research) if args.research else None)
     voice_dir = base / "audio"
-    print("[2/6] Локальная озвучка (Piper)...")
+    print("[2/6] Локальная озвучка (Kokoro-ru v2 Dima / CPU)...")
     synth = synthesize(s, script_path, voice_dir, speed=args.speed)
     assets_manifest = base / "assets_manifest.json"
     print("[3/6] Поиск лицензируемых видео и фото...")
@@ -346,7 +365,7 @@ def build_parser() -> argparse.ArgumentParser:
     sc = sub.add_parser("script", help="Создание структурированного сценария")
     sc.add_argument("--topic", required=True); sc.add_argument("--research"); sc.add_argument("--out", default="output/script.json")
     sc.add_argument("--min-words", type=int, default=1100); sc.set_defaults(func=cmd_script)
-    tt = sub.add_parser("tts", help="Локальная Piper TTS")
+    tt = sub.add_parser("tts", help="Локальная Kokoro-ru v2 Dima TTS (CPU)")
     tt.add_argument("--script", required=True); tt.add_argument("--out", default="output/audio"); tt.add_argument("--speed", type=float, default=0.9); tt.set_defaults(func=cmd_tts)
     asst = sub.add_parser("assets", help="Скачивание стоковых B-roll и фото")
     asst.add_argument("--script", required=True); asst.add_argument("--out", default="output/assets_manifest.json")

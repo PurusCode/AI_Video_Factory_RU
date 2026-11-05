@@ -1,7 +1,8 @@
-"""RUAccent configuration and small, explicit Kokoro stress corrections.
+"""RUAccent configuration and explicit stress corrections for Kokoro-ru v2.
 
-This module is used only by the evaluation-only Kokoro ONNX benchmark.
-It does not change the production Piper TTS pipeline.
+This module is shared by the production Kokoro TTS engine and its focused
+regression checks. It validates an existing local RUAccent asset directory;
+it does not download missing RUAccent assets itself.
 """
 from __future__ import annotations
 
@@ -117,10 +118,12 @@ def build_configured_g2p(
 
     The pinned upstream RuG2P constructor creates RUAccent() internally and
     calls load() without exposing RUAccent's workdir/custom_dict parameters.
-    We temporarily wrap RUAccent.load only during RuG2P construction, then
-    restore the class method immediately. The created instance retains its
-    loaded local assets and dictionary. Context rules are applied to the
-    RUAccent marked text before RuG2P converts stress marks to IPA.
+    Required local RUAccent model/dictionary directories must already exist;
+    this helper validates them before construction and intentionally does not
+    bootstrap or download assets. We temporarily wrap RUAccent.load only during
+    RuG2P construction, then restore the class method immediately. The created
+    instance retains its loaded local assets and dictionary. Context rules are
+    applied to the RUAccent marked text before RuG2P converts stress marks to IPA.
     """
     model_root = Path(model_root).resolve()
     accent_model_root = Path(accent_model_root).resolve()

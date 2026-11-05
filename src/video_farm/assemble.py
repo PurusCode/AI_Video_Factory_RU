@@ -20,7 +20,16 @@ def _script_block_id(block: dict[str, Any], index: int) -> str:
 
 
 def _validate_audio_manifest(script_blocks: list[dict[str, Any]], audio_manifest: dict[str, Any], audio_dir: Path) -> dict[str, dict[str, Any]]:
-    """Reject incomplete/stale audio output instead of quietly creating a broken, out-of-sync video."""
+    """Reject incomplete audio and WAV files outside the Kokoro PCM contract."""
+    if not isinstance(audio_manifest, dict):
+        raise RuntimeError("Некорректный audio/manifest.json: корень должен быть JSON-объектом.")
+    manifest_status = audio_manifest.get("status")
+    if manifest_status != "complete":
+        raise RuntimeError(
+            "Статус манифеста озвучки должен быть 'complete'; "
+            f"получено {manifest_status!r}. Сборка остановлена."
+        )
+
     expected_ids = [_script_block_id(block, i) for i, block in enumerate(script_blocks, 1)]
     if len(expected_ids) != len(set(expected_ids)):
         raise RuntimeError("В сценарии повторяются ID блоков; сначала исправьте script.json.")
@@ -37,30 +46,54 @@ def _validate_audio_manifest(script_blocks: list[dict[str, Any]], audio_manifest
         missing = sorted(set(expected_ids) - set(actual_ids))
         unexpected = sorted(set(actual_ids) - set(expected_ids))
         details = []
-        if missing: details.append("нет блоков: " + ", ".join(missing))
-        if unexpected: details.append("лишние блоки: " + ", ".join(unexpected))
-        raise RuntimeError("Манифест озвучки не соответствует сценарию (" + "; ".join(details) + "). Пересоздайте озвучку.")
+        if missing:
+            details.append("нет блоков: " + ", ".join(missing))
+        if unexpected:
+            details.append("лишние блоки: " + ", ".join(unexpected))
+        raise RuntimeError(
+            "Манифест озвучки не соответствует сценарию (" + "; ".join(details) + "). "
+            "Пересоздайте озвучку."
+        )
 
     result: dict[str, dict[str, Any]] = {}
     for row in rows:
         filename = str(row.get("file") or "")
         if not filename or Path(filename).name != filename or "/" in filename or "\\" in filename:
-            raise RuntimeError(f"Небезопасное или пустое имя WAV в audio/manifest.json: {filename!r}.")
+            raise RuntimeError(
+                f"Небезопасное или пустое имя WAV в audio/manifest.json: {filename!r}."
+            )
         wav_path = audio_dir / filename
         if not wav_path.is_file():
             raise RuntimeError(f"В манифесте указан отсутствующий WAV: {wav_path}.")
         try:
             with wave.open(str(wav_path), "rb") as wav:
-                measured_duration = wav.getnframes() / max(wav.getframerate(), 1)
-                if wav.getnframes() <= 0 or wav.getframerate() <= 0 or wav.getnchannels() <= 0:
-                    raise RuntimeError(f"Пустой или некорректный WAV: {wav_path}.")
+                frames = wav.getnframes()
+                sample_rate = wav.getframerate()
+                channels = wav.getnchannels()
+                sample_width = wav.getsampwidth()
+                compression = wav.getcomptype()
+                if frames <= 0:
+                    raise RuntimeError(f"Пустой WAV: {wav_path}.")
+                if (sample_rate, channels, sample_width, compression) != (24000, 1, 2, "NONE"):
+                    raise RuntimeError(
+                        f"Неподдерживаемый WAV для Kokoro: {wav_path}. Ожидается "
+                        "24 kHz, mono, PCM16 (2 bytes), uncompressed PCM; получено "
+                        f"{sample_rate} Hz, {channels} channel(s), {sample_width} byte(s), "
+                        f"compression={compression!r}."
+                    )
+                measured_duration = frames / sample_rate
         except (wave.Error, OSError) as exc:
             raise RuntimeError(f"Повреждённый WAV: {wav_path}.") from exc
+
         try:
             declared_duration = float(row.get("duration_seconds", 0))
         except (TypeError, ValueError) as exc:
-            raise RuntimeError(f"В манифесте некорректная длительность блока {row['id']}.") from exc
-        if declared_duration <= 0 or abs(declared_duration - measured_duration) > max(0.1, measured_duration * 0.01):
+            raise RuntimeError(
+                f"В манифесте некорректная длительность блока {row['id']}."
+            ) from exc
+        if declared_duration <= 0 or abs(declared_duration - measured_duration) > max(
+            0.1, measured_duration * 0.01
+        ):
             raise RuntimeError(
                 f"Длительность WAV {row['id']} не совпадает с манифестом: "
                 f"файл {measured_duration:.3f} с, манифест {declared_duration:.3f} с."
@@ -289,4 +322,3 @@ def create_description(script_path: Path, out_path: Path, assets_manifest_path: 
     write_json(out_path.with_suffix(".json"), payload)
     out_path.write_text(text, encoding="utf-8")
     return payload
-

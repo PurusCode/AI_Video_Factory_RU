@@ -1,10 +1,10 @@
-param(
+﻿param(
   [switch]$SkipTests
 )
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-Write-Host '=== video-farm setup ===' -ForegroundColor Cyan
+Write-Host '=== video-farm setup (Kokoro-ru v2 / CPU) ===' -ForegroundColor Cyan
 $py = $null
 foreach ($candidate in @('3.13', '3.12')) {
   try {
@@ -22,6 +22,13 @@ if (-not (Test-Path '.venv\Scripts\python.exe')) {
 $venvPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 & $venvPython -m pip install --upgrade pip setuptools wheel
 & $venvPython -m pip install -e '.[tts,test]'
-if (-not (Test-Path '.env')) { Copy-Item '.env.example' '.env'; Write-Host 'Создан .env из .env.example — заполните ключи.' -ForegroundColor Yellow }
-if (-not $SkipTests) { & $venvPython -m pytest }
-Write-Host "Готово. Запустите: .\.venv\Scripts\python.exe -m video_farm.cli doctor" -ForegroundColor Green
+if ($LASTEXITCODE -ne 0) { throw 'Не удалось установить зависимости Kokoro. См. сообщение pip выше.' }
+if (-not (Test-Path '.env')) {
+  Copy-Item '.env.example' '.env'
+  Write-Host 'Создан .env из .env.example — заполните ключи.' -ForegroundColor Yellow
+}
+if (-not $SkipTests) {
+  & $venvPython -m pytest -q
+  if ($LASTEXITCODE -ne 0) { throw 'Автоматические тесты завершились с ошибкой.' }
+}
+Write-Host "Готово. Проверьте: .\.venv\Scripts\python.exe -m video_farm.cli doctor" -ForegroundColor Green

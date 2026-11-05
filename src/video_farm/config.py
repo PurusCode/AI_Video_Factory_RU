@@ -5,12 +5,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 from .common import ROOT, ensure_dir
 
+
 @dataclass
 class ProviderConfig:
     name: str
     base_url: str
     api_key: str
     model: str
+
 
 @dataclass
 class Settings:
@@ -47,8 +49,8 @@ def load_settings() -> Settings:
     os.environ.setdefault("TORCH_HOME", str(cache / "torch"))
     os.environ.setdefault("HF_HOME", str(cache / "huggingface"))
     os.environ.setdefault("XDG_CACHE_HOME", str(cache / "xdg"))
-    for d in (data, cache, data / "broll", data / "images", data / "audio", ROOT / "output"):
-        ensure_dir(d)
+    for directory in (data, cache, data / "broll", data / "images", data / "audio", ROOT / "output"):
+        ensure_dir(directory)
     providers: list[ProviderConfig] = []
     for label in ("PRIMARY", "SECONDARY"):
         base = os.getenv(f"LLM_{label}_BASE_URL", "").strip()
@@ -63,7 +65,11 @@ def load_settings() -> Settings:
         width=int(os.getenv("VIDEO_WIDTH", "1920")), height=int(os.getenv("VIDEO_HEIGHT", "1080")),
         fps=int(os.getenv("VIDEO_FPS", "25")), bitrate=os.getenv("VIDEO_BITRATE", "4500k"),
         gop=int(os.getenv("VIDEO_GOP", "50")), youtube_api_key=os.getenv("YOUTUBE_API_KEY", "").strip(),
-        pexels_api_key=os.getenv("PEXELS_API_KEY", "").strip(), pixabay_api_key=os.getenv("PIXABAY_API_KEY", "").strip(), tts_engine=os.getenv("TTS_ENGINE", "piper"),
-        tts_language=os.getenv("TTS_LANGUAGE", "ru"), tts_speaker=os.getenv("TTS_SPEAKER", "ru_RU-dmitri-medium"),
+        pexels_api_key=os.getenv("PEXELS_API_KEY", "").strip(),
+        pixabay_api_key=os.getenv("PIXABAY_API_KEY", "").strip(),
+        tts_engine=os.getenv("TTS_ENGINE", "kokoro").strip().lower(),
+        tts_language=os.getenv("TTS_LANGUAGE", "ru").strip(),
+        tts_speaker=os.getenv("TTS_SPEAKER", "dima").strip().lower(),
         tts_speed=float(os.getenv("TTS_SPEED", "0.9")),
-        providers=providers)
+        providers=providers,
+    )

@@ -1,197 +1,219 @@
 from __future__ import annotations
 
 import json
-import subprocess
-import wave
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
-from video_farm import tts
+from video_farm import kokoro_engine, tts
 from video_farm.assemble import _validate_audio_manifest
 from video_farm.common import write_json
 
 
-def _write_wav(path: Path, *, sample_rate: int = 22050, frames: int = 2205) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(str(path), "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(sample_rate)
-        w.writeframes(b"\x00\x00" * frames)
+class FakeG2P:
+    def phonemize(self, text):
+        return "abc", []
 
 
-def _fake_settings(tmp_path: Path) -> SimpleNamespace:
-    data_dir = tmp_path / "data"
-    model_dir = data_dir / "models" / "piper"
-    model_dir.mkdir(parents=True)
-    (model_dir / "ru_RU-dmitri-medium.onnx").write_bytes(b"model" * 500)
-    cfg = {"audio": {"sample_rate": 22050}, "test_note": "keep this config larger than the download guard " * 8}
-    (model_dir / "ru_RU-dmitri-medium.onnx.json").write_text(json.dumps(cfg), encoding="utf-8")
-    return SimpleNamespace(
-        data_dir=data_dir,
-        tts_speed=1.0,
-        tts_engine="piper",
-        tts_speaker="ru_RU-dmitri-medium",
-        ffmpeg="ffmpeg",
+class FakeSession:
+    def __init__(self):
+        self.calls = []
+
+    def run(self, _outputs, inputs):
+        self.calls.append(inputs)
+        return [np.full(2400, 0.05, dtype=np.float32)]
+
+
+def _fake_runtime(tmp_path: Path):
+    model = tmp_path / "model.onnx"
+    voice = tmp_path / "dima.bin"
+    model_cfg = tmp_path / "config.json"
+    kokoro_cfg = tmp_path / "kokoro-config.json"
+    g2p_file = tmp_path / "ru_g2p.py"
+    stress = tmp_path / "stress.json"
+    for path, payload in (
+        (model, b"fake model"),
+        (voice, b"fake voice"),
+        (model_cfg, b'{"vocab":{"a":1,"b":2,"c":3}}'),
+        (kokoro_cfg, b"{}"),
+        (g2p_file, b"# fake"),
+        (stress, b'{"schema_version":1,"ruaccent":{},"context_rules":[]}'),
+    ):
+        path.write_bytes(payload)
+    from video_farm.kokoro_stress import load_stress_config
+    return kokoro_engine.KokoroRuntime(
+        session=FakeSession(),
+        g2p=FakeG2P(),
+        vocab={"a": 1, "b": 2, "c": 3},
+        style=np.zeros((510, 256), dtype=np.float32),
+        model_root=tmp_path,
+        accent_model_root=tmp_path,
+        model_path=model,
+        voice_path=voice,
+        stress_config_path=stress,
+        stress_config=load_stress_config(stress),
+        model_config_path=model_cfg,
+        kokoro_config_path=kokoro_cfg,
+        g2p_path=g2p_file,
     )
 
 
-def test_synthesize_records_reproducible_manifest_and_one_wav_per_block(tmp_path, monkeypatch):
-    settings = _fake_settings(tmp_path)
-    script_path = tmp_path / "script.json"
-    write_json(script_path, {
-        "blocks": [
-            {"id": "intro", "heading": "Вступление", "voice_text": "DeepSeek использует API."},
-            {"id": "body", "heading": "Основная часть", "voice_text": "Есть 8 GB памяти."},
-        ]
-    })
-    fake_exe = str(tmp_path / "piper")
-    monkeypatch.setattr(tts.shutil, "which", lambda name: fake_exe if name == "piper" else None)
+def _settings(tmp_path: Path, *, engine="kokoro", speaker="dima"):
+    return SimpleNamespace(
+        root=tmp_path,
+        data_dir=tmp_path / "data",
+        tts_speed=0.9,
+        tts_engine=engine,
+        tts_speaker=speaker,
+    )
 
-    sent_texts = []
-    def fake_run(cmd, **kwargs):
-        # Capture actual text that the TTS process would receive.
-        sent_texts.append(kwargs.get("input"))
-        # Ensure Russian UTF-8 text is also decoded as UTF-8 inside piper.exe on Windows.
-        assert kwargs["encoding"] == "utf-8"
-        assert kwargs["env"]["PYTHONUTF8"] == "1"
-        assert kwargs["env"]["PYTHONIOENCODING"] == "utf-8"
-        output_path = Path(cmd[cmd.index("--output_file") + 1])
-        _write_wav(output_path)
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    monkeypatch.setattr(tts.subprocess, "run", fake_run)
-    out_dir = tmp_path / "audio"
-    manifest = tts.synthesize(settings, script_path, out_dir, speed=1.0)
+def _script(tmp_path: Path, blocks=None):
+    path = tmp_path / "script.json"
+    write_json(path, {"blocks": blocks or [
+        {"id": "intro", "heading": "Вступление", "voice_text": "Проверочный текст."},
+        {"id": "body", "heading": "Основная часть", "voice_text": "Второй проверочный текст."},
+    ]})
+    return path
+
+
+def test_production_synthesize_uses_kokoro_and_writes_compatible_manifest(tmp_path, monkeypatch):
+    settings = _settings(tmp_path)
+    runtime = _fake_runtime(tmp_path)
+    monkeypatch.setattr(kokoro_engine, "load_runtime", lambda _settings, _threads: runtime)
+    monkeypatch.setenv("KOKORO_THREADS", "2")
+
+    out = tmp_path / "audio"
+    manifest = tts.synthesize(settings, _script(tmp_path), out, speed=0.9)
 
     assert manifest["status"] == "complete"
-    assert manifest["blocks_expected"] == 2
-    assert [b["id"] for b in manifest["blocks"]] == ["intro", "body"]
-    assert manifest["model_sha256"] and len(manifest["model_sha256"]) == 64
-    assert manifest["config_sha256"] and len(manifest["config_sha256"]) == 64
-    assert sent_texts == ["ДипСик использует эй пи ай.", "Есть восемь гигабайт памяти."]
-    assert manifest["blocks"][0]["source_voice_text"] == "DeepSeek использует API."
-    assert manifest["blocks"][0]["normalized_voice_text"] == sent_texts[0]
-    assert manifest["blocks"][1]["unconverted_numeric_tokens"] == []    
-    assert not any("остались числовые токены" in item for item in manifest["quality_warnings"])
-    assert manifest["python_version"]
-    assert manifest["generated_at_utc"].endswith("+00:00")
-    for block in manifest["blocks"]:
-        assert (out_dir / block["file"]).is_file()
-        assert block["duration_seconds"] == 0.1
-        assert block["sample_rate"] == 22050
-        assert block["normalized_text_sha256"]
-        assert block["source_voice_text_sha256"]
-        assert "source_voice_text" in block and "normalized_voice_text" in block
-        assert block["elapsed_seconds"] >= 0
-    saved = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["engine"] == "Kokoro-ru v2 ONNX (CPU)"
+    assert manifest["engine_package"] == "onnxruntime"
+    assert manifest["revision"] == kokoro_engine.REPO_REVISION
+    assert manifest["voice"] == "dima"
+    assert manifest["blocks_expected"] == manifest["blocks_completed"] == 2
+    assert [row["id"] for row in manifest["blocks"]] == ["intro", "body"]
+    assert len(manifest["model_sha256"]) == 64
+    assert len(manifest["voice_sha256"]) == 64
+    assert len(manifest["stress_config_sha256"]) == 64
+    assert runtime.session.calls[0]["speed"].tolist() == pytest.approx([0.9])
+    for row in manifest["blocks"]:
+        wav = out / row["file"]
+        assert wav.is_file()
+        assert row["sample_rate"] == 24000
+        assert row["channels"] == 1
+        assert row["sample_width_bytes"] == 2
+        assert row["duration_seconds"] == 0.1
+        assert row["source_voice_text_sha256"]
+        assert row["normalized_text_sha256"]
+    saved = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
     assert saved["status"] == "complete"
     assert len(saved["blocks"]) == 2
 
 
-def test_synthesize_rejects_empty_block_before_running_piper(tmp_path, monkeypatch):
-    settings = _fake_settings(tmp_path)
-    script_path = tmp_path / "script.json"
-    write_json(script_path, {"blocks": [{"id": "empty", "voice_text": "   "}]})
-    monkeypatch.setattr(tts.shutil, "which", lambda _: "/not-used/piper")
-    with pytest.raises(ValueError, match="Пустой voice_text"):
-        tts.synthesize(settings, script_path, tmp_path / "audio", speed=1.0)
+def test_piper_is_rejected_without_fallback(tmp_path, monkeypatch):
+    settings = _settings(tmp_path, engine="piper")
+    monkeypatch.setattr(
+        kokoro_engine, "load_runtime",
+        lambda *_args: pytest.fail("Runtime must not be loaded for unsupported engine"),
+    )
+    with pytest.raises(RuntimeError, match="fallback на Piper нет"):
+        tts.synthesize(settings, _script(tmp_path), tmp_path / "audio")
 
 
-def test_synthesize_rejects_duplicate_block_ids(tmp_path, monkeypatch):
-    settings = _fake_settings(tmp_path)
-    script_path = tmp_path / "script.json"
-    write_json(script_path, {"blocks": [
-        {"id": "same", "voice_text": "Первый блок."},
-        {"id": "same", "voice_text": "Второй блок."},
-    ]})
-    monkeypatch.setattr(tts.shutil, "which", lambda _: "/not-used/piper")
-    with pytest.raises(ValueError, match="Повторяется ID"):
-        tts.synthesize(settings, script_path, tmp_path / "audio", speed=1.0)
+def test_non_dima_voice_is_rejected(tmp_path):
+    with pytest.raises(RuntimeError, match="проверенный голос Kokoro Dima"):
+        tts.synthesize(_settings(tmp_path, speaker="sveta"), _script(tmp_path), tmp_path / "audio")
 
 
 @pytest.mark.parametrize("speed", [0.0, 0.49, 2.01, float("inf")])
-def test_synthesize_rejects_invalid_speeds(tmp_path, speed):
-    settings = _fake_settings(tmp_path)
-    script_path = tmp_path / "script.json"
-    write_json(script_path, {"blocks": [{"id": "intro", "voice_text": "Контрольный текст."}]})
+def test_invalid_speed_is_rejected_before_model_load(tmp_path, monkeypatch, speed):
+    monkeypatch.setattr(
+        kokoro_engine, "load_runtime",
+        lambda *_args: pytest.fail("Model must not load for invalid speed"),
+    )
     with pytest.raises(ValueError, match="Скорость TTS"):
-        tts.synthesize(settings, script_path, tmp_path / "audio", speed=speed)
+        tts.synthesize(_settings(tmp_path), _script(tmp_path), tmp_path / "audio", speed=speed)
+
+
+def test_empty_block_is_rejected_before_model_load(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        kokoro_engine, "load_runtime",
+        lambda *_args: pytest.fail("Model must not load for empty text"),
+    )
+    script = _script(tmp_path, [{"id": "empty", "voice_text": "  "}])
+    with pytest.raises(ValueError, match="Пустой voice_text"):
+        tts.synthesize(_settings(tmp_path), script, tmp_path / "audio")
+
+
+def test_duplicate_ids_are_rejected_before_model_load(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        kokoro_engine, "load_runtime",
+        lambda *_args: pytest.fail("Model must not load for duplicate IDs"),
+    )
+    script = _script(tmp_path, [
+        {"id": "same", "voice_text": "Первый текст."},
+        {"id": "same", "voice_text": "Второй текст."},
+    ])
+    with pytest.raises(ValueError, match="Повторяется ID"):
+        tts.synthesize(_settings(tmp_path), script, tmp_path / "audio")
+
+
+def test_failed_inference_persists_failed_manifest(tmp_path, monkeypatch):
+    settings = _settings(tmp_path)
+    runtime = _fake_runtime(tmp_path)
+
+    def fail_run(*_args, **_kwargs):
+        raise RuntimeError("fake inference failure")
+
+    runtime.session.run = fail_run
+    monkeypatch.setattr(kokoro_engine, "load_runtime", lambda *_args: runtime)
+    out = tmp_path / "audio"
+    with pytest.raises(RuntimeError, match="fake inference failure"):
+        tts.synthesize(settings, _script(tmp_path, [
+            {"id": "intro", "voice_text": "Проверочный текст."}
+        ]), out)
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "failed"
+    assert "fake inference failure" in manifest["error"]
 
 
 def test_audio_manifest_must_cover_every_script_block(tmp_path):
     audio_dir = tmp_path / "audio"
-    _write_wav(audio_dir / "intro.wav")
-    blocks = [{"id": "intro"}, {"id": "body"}]
-    manifest = {"blocks": [{"id": "intro", "file": "intro.wav", "duration_seconds": 0.1}]}
+    audio_dir.mkdir()
+    import soundfile as sf
+    sf.write(str(audio_dir / "intro.wav"), np.zeros(2400, dtype=np.float32), 24000, subtype="PCM_16")
+    manifest = {"status": "complete", "blocks": [{"id": "intro", "file": "intro.wav", "duration_seconds": 0.1}]}
     with pytest.raises(RuntimeError, match="не соответствует сценарию"):
-        _validate_audio_manifest(blocks, manifest, audio_dir)
+        _validate_audio_manifest([{"id": "intro"}, {"id": "body"}], manifest, audio_dir)
 
 
 def test_audio_manifest_checks_declared_duration(tmp_path):
     audio_dir = tmp_path / "audio"
-    _write_wav(audio_dir / "intro.wav")
-    manifest = {"blocks": [{"id": "intro", "file": "intro.wav", "duration_seconds": 2.0}]}
+    audio_dir.mkdir()
+    import soundfile as sf
+    sf.write(str(audio_dir / "intro.wav"), np.zeros(2400, dtype=np.float32), 24000, subtype="PCM_16")
+    manifest = {"status": "complete", "blocks": [{"id": "intro", "file": "intro.wav", "duration_seconds": 2.0}]}
     with pytest.raises(RuntimeError, match="не совпадает с манифестом"):
         _validate_audio_manifest([{"id": "intro"}], manifest, audio_dir)
 
 
-def test_control_script_covers_the_required_speech_cases():
+def test_control_script_covers_required_speech_cases():
     root = Path(__file__).resolve().parents[1]
-    script = json.loads((root / "data" / "piper_control_script.json").read_text(encoding="utf-8"))
-    assert len(script["blocks"]) >= 4
+    script_path = root / "data" / "kokoro_stress_audio_test_script.json"
+    script = json.loads(script_path.read_text(encoding="utf-8"))
+    assert [block["id"] for block in script["blocks"]] == [
+        "door_lock",
+        "old_castle",
+        "door_lock_genitive",
+    ]
     assert all(str(block.get("voice_text", "")).strip() for block in script["blocks"])
-    joined = " ".join(block["voice_text"] for block in script["blocks"])
-    for required in ("DeepSeek", "API", "CPU", "16.10.2026", "12.5%", "4 500 RUB", "букву ё"):
-        assert required.casefold() in joined.casefold()
-
-
-def test_synthesize_reports_failure_when_piper_is_missing(tmp_path, monkeypatch):
-    import builtins
-
-    settings = _fake_settings(tmp_path)
-    script_path = tmp_path / "script.json"
-    write_json(script_path, {"blocks": [{"id": "intro", "voice_text": "Контрольный текст."}]})
-    monkeypatch.setattr(tts.shutil, "which", lambda _: None)
-    # Avoid detecting a piper.exe installed into the active test virtualenv.
-    monkeypatch.setattr(tts.sys, "executable", str(tmp_path / "python-without-piper"))
-    original_import = builtins.__import__
-
-    def import_without_piper(name, *args, **kwargs):
-        if name == "piper":
-            raise ImportError("intentionally hidden in test")
-        return original_import(name, *args, **kwargs)
-
-    monkeypatch.setattr(builtins, "__import__", import_without_piper)
-    with pytest.raises(RuntimeError, match="Piper не найден"):
-        tts.synthesize(settings, script_path, tmp_path / "audio", speed=1.0)
-
-
-def test_synthesize_marks_manifest_failed_when_piper_wav_is_invalid(tmp_path, monkeypatch):
-    settings = _fake_settings(tmp_path)
-    script_path = tmp_path / "script.json"
-    write_json(script_path, {"blocks": [{"id": "intro", "voice_text": "Контрольный текст."}]})
-    monkeypatch.setattr(tts.shutil, "which", lambda _: str(tmp_path / "piper"))
-
-    def fake_run(cmd, **kwargs):
-        output_path = Path(cmd[cmd.index("--output_file") + 1])
-        output_path.write_bytes(b"not a wav" * 10)
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-    monkeypatch.setattr(tts.subprocess, "run", fake_run)
-    out_dir = tmp_path / "audio"
-    with pytest.raises(RuntimeError, match="WAV повреждён"):
-        tts.synthesize(settings, script_path, out_dir, speed=1.0)
-    manifest = json.loads((out_dir / "manifest.json").read_text(encoding="utf-8"))
-    assert manifest["status"] == "failed"
-    assert "error" in manifest
 
 
 def test_description_does_not_claim_stock_sources_when_no_external_media_used(tmp_path):
     from video_farm.assemble import create_description
-
     script_path = tmp_path / "script.json"
     write_json(script_path, {"title": "Тестовый ролик", "blocks": [{"id": "intro", "heading": "Вступление", "kind": "body"}]})
     payload = create_description(script_path, tmp_path / "publish.txt", used_media=[])
@@ -203,7 +225,6 @@ def test_description_does_not_claim_stock_sources_when_no_external_media_used(tm
 
 def test_description_lists_only_media_reported_as_actually_used(tmp_path):
     from video_farm.assemble import create_description
-
     script_path = tmp_path / "script.json"
     write_json(script_path, {"title": "Тестовый ролик", "blocks": []})
     used = [{
@@ -220,7 +241,6 @@ def test_description_lists_only_media_reported_as_actually_used(tmp_path):
 
 def test_description_created_without_render_evidence_marks_media_unknown(tmp_path):
     from video_farm.assemble import create_description
-
     script_path = tmp_path / "script.json"
     write_json(script_path, {"title": "Черновик описания", "blocks": []})
     payload = create_description(script_path, tmp_path / "publish.txt")
@@ -228,3 +248,17 @@ def test_description_created_without_render_evidence_marks_media_unknown(tmp_pat
     assert "не определена" in payload["media_attribution"]
     assert "Pexels" not in payload["description"]
     assert "Pixabay" not in payload["description"]
+
+
+def test_runtime_initialization_failure_persists_failed_manifest(tmp_path, monkeypatch):
+    def fail_load(*_args):
+        raise FileNotFoundError("RUAccent assets missing")
+    monkeypatch.setattr(kokoro_engine, "load_runtime", fail_load)
+    out = tmp_path / "audio"
+    with pytest.raises(FileNotFoundError, match="RUAccent assets missing"):
+        tts.synthesize(_settings(tmp_path), _script(tmp_path, [
+            {"id": "intro", "voice_text": "Проверочный текст."}
+        ]), out)
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["status"] == "failed"
+    assert "RUAccent assets missing" in manifest["error"]
