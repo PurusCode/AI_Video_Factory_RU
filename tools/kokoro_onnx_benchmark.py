@@ -27,8 +27,16 @@ from huggingface_hub import snapshot_download
 _SRC = Path(__file__).resolve().parents[1] / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
+from video_farm.kokoro_stress import (  # noqa: E402
+    build_configured_g2p,
+    load_stress_config,
+    stress_config_sha256,
+)
 from video_farm.text_normalization import (  # noqa: E402
-    NORMALIZER_VERSION, find_numeric_tokens, normalizer_backend, normalize_for_speech,
+    NORMALIZER_VERSION,
+    find_numeric_tokens,
+    normalizer_backend,
+    normalize_for_speech,
 )
 
 REPO_ID = "zaakirio/kokoro-ru"
@@ -176,6 +184,18 @@ def download_assets(root: Path, voice: str) -> Path:
 def run(args: argparse.Namespace) -> int:
     project_root = Path(__file__).resolve().parents[1]
     model_root = Path(args.model_dir).resolve() if args.model_dir else project_root / "data" / "models" / "kokoro-ru-v2-onnx"
+    accent_model_root = (
+        Path(args.accent_model_dir).resolve()
+        if args.accent_model_dir
+        else project_root / "data" / "models" / "ruaccent-accentuator"
+    )
+    stress_config_path = (
+        Path(args.stress_config).resolve()
+        if args.stress_config
+        else project_root / "data" / "kokoro_stress_config.json"
+    )
+    stress_config = load_stress_config(stress_config_path)
+
     script_path = Path(args.script).resolve()
     output_dir = Path(args.out).resolve()
     if not script_path.is_file():
@@ -189,11 +209,14 @@ def run(args: argparse.Namespace) -> int:
 
     download_assets(model_root, args.voice)
     sys.path.insert(0, str(model_root))
-    # The upstream frontend imports RUAccent, Misaki and phonemizer and uses
-    # the repo-local acute-aware espeak data; don't substitute system espeak data.
-    from ru_g2p import RuG2P  # type: ignore  # provided by the pinned upstream snapshot
-
-    g2p = RuG2P(espeak_data=model_root / "espeak-data", vocab_path=model_root / "kokoro-config.json")
+    # Use the explicitly pinned local RUAccent model data. The upstream RuG2P
+    # constructor does not expose RUAccent.load(workdir/custom_dict), so the
+    # helper wraps RUAccent.load only while constructing this G2P instance.
+    g2p = build_configured_g2p(
+        model_root=model_root,
+        accent_model_root=accent_model_root,
+        stress_config=stress_config,
+    )
     vocab = json.loads((model_root / "config.json").read_text(encoding="utf-8"))["vocab"]
     if not isinstance(vocab, dict):
         raise ValueError("Неожиданный формат config.json: vocab должен быть объектом")
@@ -221,6 +244,11 @@ def run(args: argparse.Namespace) -> int:
         "voice": args.voice,
         "text_normalizer_version": NORMALIZER_VERSION,
         "text_normalizer_backend": normalizer_backend(),
+        "stress_config_schema_version": stress_config["schema_version"],
+        "stress_config_sha256": stress_config_sha256(stress_config_path),
+        "stress_config_file": str(stress_config_path),
+        "stress_rule_ids": [rule["id"] for rule in stress_config["context_rules"]],
+        "ruaccent_model_dir": str(accent_model_root),
         "python_version": sys.version,
         "onnxruntime_version": ort.__version__,
         "numpy_version": np.__version__,
@@ -322,6 +350,8 @@ def main() -> int:
     parser.add_argument("--out", default="output/kokoro-dima-benchmark")
     parser.add_argument("--voice", choices=["dima", "sveta"], default="dima")
     parser.add_argument("--model-dir", default=None, help="Каталог кеша модели; по умолчанию data/models/kokoro-ru-v2-onnx")
+    parser.add_argument("--accent-model-dir", default=None, help="Локальные данные RUAccent; по умолчанию data/models/ruaccent-accentuator")
+    parser.add_argument("--stress-config", default=None, help="JSON с пользовательскими ударениями; по умолчанию data/kokoro_stress_config.json")
     parser.add_argument("--speed", type=float, default=1.0)
     parser.add_argument("--threads", type=int, default=4)
     args = parser.parse_args()

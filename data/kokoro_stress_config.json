@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "description": "Пользовательские ударения и проверенные контекстные исправления для экспериментального Kokoro RU v2.",
+  "ruaccent": {
+    "custom_dict": {
+      "пора": "пор+а"
+    },
+    "custom_homographs": {}
+  },
+  "context_rules": [
+    {
+      "id": "door_lock_nominative_singular",
+      "description": "В сочетании «дверной замок» задаёт ударение замо́к; не применяется к «старый замок». Проверена только эта словоформа.",
+      "pattern": "(?P<prefix>\\bдверн\\+?ой\\s+)з\\+?ам\\+?ок\\b",
+      "replacement": "\\g<prefix>зам+ок",
+      "flags": [
+        "IGNORECASE"
+      ]
+    }
+  ]
+}
