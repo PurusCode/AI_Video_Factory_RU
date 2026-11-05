@@ -7,3 +7,4 @@ phonemizer-fork==3.3.2
 espeakng-loader==0.2.4
 misaki @ git+https://github.com/hexgrad/misaki.git@fba1236595f2d2bf21d414ba6e57d25256afada3
 ruaccent @ git+https://github.com/Den4ikAI/ruaccent.git@39543da92705ab26103897eac7bc512c357449bd
+num2words==0.5.14
