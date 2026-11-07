@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "video-farm"
-version = "0.1.0"
-description = "Локальная фабрика технологических видео для Rutube и VK Video"
+version = "0.2.0"
+description = "Локальная фабрика технологических видео с семантическим монтажом"
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 license = {text = "Proprietary - project files provided to the recipient"}
@@ -17,6 +17,7 @@ dependencies = [
   "soundfile>=0.12.1",
   "numpy>=1.26.0",
   "tzdata>=2025.2",
+  "pydantic>=2.7,<3",
 ]
 
 [project.optional-dependencies]
@@ -36,6 +37,7 @@ test = ["pytest>=8.0.0"]
 
 [project.scripts]
 video-farm = "video_farm.cli:main"
+video-farm-semantic = "video_farm.semantic_cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

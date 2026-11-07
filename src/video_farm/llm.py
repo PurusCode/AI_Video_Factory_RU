@@ -11,15 +11,22 @@ class LLMUnavailable(RuntimeError):
 
 class LLMRouter:
     """OpenAI-compatible LLM clients with retry and provider fallback."""
-    def __init__(self, settings: Settings):
+    def __init__(self, settings: Settings, *, honor_provider_timeouts: bool = False):
         try:
             from openai import OpenAI
         except ImportError as exc:
             raise LLMUnavailable("Не установлен пакет openai. Запустите install.ps1 или `pip install -e .`.") from exc
         self.clients: list[tuple[str, str, Any]] = []
         for p in settings.providers:
+            # Keep the legacy content pipeline at its historical 10-minute timeout.
+            # The new structured pipeline opts into per-provider values (MWS/Ollama).
+            timeout_seconds = (
+                float(getattr(p, "timeout_seconds", 600.0))
+                if honor_provider_timeouts else 600.0
+            )
             self.clients.append((p.name, p.model, OpenAI(
-                base_url=p.base_url, api_key=p.api_key, timeout=600.0, max_retries=0)))
+                base_url=p.base_url, api_key=p.api_key,
+                timeout=timeout_seconds, max_retries=0)))
 
     def json(self, system_prompt: str, user_prompt: str, *, temperature: float = 0.65,
              max_tokens: int = 7000) -> Any:

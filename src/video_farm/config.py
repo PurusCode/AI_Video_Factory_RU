@@ -12,6 +12,7 @@ class ProviderConfig:
     base_url: str
     api_key: str
     model: str
+    timeout_seconds: float = 120.0
 
 
 @dataclass
@@ -57,7 +58,25 @@ def load_settings() -> Settings:
         model = os.getenv(f"LLM_{label}_MODEL", "").strip()
         key = os.getenv(f"LLM_{label}_API_KEY", "").strip()
         if base and model and key:
-            providers.append(ProviderConfig(label.lower(), base, key, model))
+            default_timeout = 120.0 if label == "PRIMARY" else 900.0
+            raw_timeout = os.getenv(
+                f"LLM_{label}_TIMEOUT_SECONDS", str(default_timeout)
+            ).strip()
+            try:
+                timeout_seconds = float(raw_timeout)
+            except ValueError as exc:
+                raise ValueError(
+                    f"LLM_{label}_TIMEOUT_SECONDS должен быть числом секунд, "
+                    f"получено: {raw_timeout!r}"
+                ) from exc
+            if not 10.0 <= timeout_seconds <= 3600.0:
+                raise ValueError(
+                    f"LLM_{label}_TIMEOUT_SECONDS должен быть в диапазоне 10..3600, "
+                    f"получено: {timeout_seconds}"
+                )
+            providers.append(ProviderConfig(
+                label.lower(), base, key, model, timeout_seconds=timeout_seconds
+            ))
     return Settings(
         root=ROOT, data_dir=data, output_dir=ROOT / "output", cache_dir=cache,
         broll_dir=data / "broll", images_dir=data / "images", audio_dir=data / "audio",

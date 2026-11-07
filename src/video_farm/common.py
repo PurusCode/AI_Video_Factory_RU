@@ -1,5 +1,5 @@
 from __future__ import annotations
-import json, re, hashlib
+import json, re, hashlib, os, tempfile
 from pathlib import Path
 from typing import Any
 
@@ -11,9 +11,28 @@ def ensure_dir(path: str | Path) -> Path:
     return p
 
 def write_json(path: str | Path, payload: Any) -> None:
+    """Write JSON atomically so interrupted runs cannot leave truncated checkpoints."""
     p = Path(path)
     ensure_dir(p.parent)
-    p.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    encoded = json.dumps(payload, ensure_ascii=False, indent=2)
+    temp_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", newline="\n",
+            dir=p.parent, prefix=f".{p.name}.", suffix=".tmp", delete=False
+        ) as stream:
+            temp_name = stream.name
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_name, p)
+        temp_name = None
+    finally:
+        if temp_name is not None:
+            try:
+                os.unlink(temp_name)
+            except FileNotFoundError:
+                pass
 
 def read_json(path: str | Path) -> Any:
     return json.loads(Path(path).read_text(encoding="utf-8"))
