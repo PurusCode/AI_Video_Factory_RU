@@ -1,0 +1,20 @@
+{
+  "name": "AI Video Factory RU — Engine 2.0 Bootstrap",
+  "version": "0.1.0",
+  "base_commit_reference": "4454e27",
+  "type": "additive-bootstrap",
+  "modifies_existing_files": false,
+  "files": [
+    "README_ENGINE_2_BOOTSTRAP_RU.txt",
+    "OVERLAY_MANIFEST.json",
+    "tools/mws_image_probe.py",
+    "tests/test_mws_image_probe.py",
+    "docs/28_AUTONOMOUS_VIDEO_ENGINE_2.0_RU.md",
+    "docs/29_MWS_GEMINI_IMAGE_PROBE_RU.md"
+  ],
+  "notes": [
+    "The probe sends at most one generation request.",
+    "The OpenAI-compatible /images/generations endpoint is an explicit hypothesis because MWS public examples do not yet document image output transport for this proxy model.",
+    "Do not integrate the image provider into production until the transport and response format have been confirmed against the user's MWS deployment."
+  ]
+}
