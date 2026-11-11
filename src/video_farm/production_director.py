@@ -20,6 +20,7 @@ from .director_assembler import assemble_director_video
 from .text_normalization import normalize_for_speech
 from .kokoro_engine import synthesize_kokoro
 from .pixabay_media import fetch_pixabay, PixabayError
+from .director_shots import plan_shots
 
 log=logging.getLogger("video_farm.production_director")
 
@@ -423,8 +424,12 @@ def run_pipeline(*, script_path: Path|None, storyboard_path: Path|None, out_dir:
         raise RuntimeError(f"AI critic still reports {len(unresolved)} unresolved scene(s); no production started. See director_review.json")
     _atomic_json(plan_path,{"plans":plans,"status":"accepted_by_ai_critic","scene_count":len(plans)})
 
+    # Shot-level EDL: exact narration anchors; timestamps come from measured WAVs.
+    shot_plan_path=out_dir/"shot_plan.json"
+    shot_result=plan_shots(settings,scenes,plans,shot_plan_path,batch_size=batch_size)
+    shot_plans=shot_result["plans"]
     source_audit=audit_claim_sources(settings,plans,out_dir/"source_audit.json")
-    beats,production=_produce(settings,scenes,plans,out_dir/"production",speed)
+    beats,production=_produce(settings,scenes,shot_plans,out_dir/"production",speed)
     asset_audit=audit_visual_assets(beats,out_dir/"visual_asset_audit.json",ffmpeg=settings.ffmpeg)
     production["visual_asset_audit_status"]=asset_audit["status"]
     production["visual_asset_audit_errors"]=asset_audit["errors"]
