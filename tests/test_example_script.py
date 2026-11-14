@@ -7,7 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_example_script_meets_mvp_structure():
-    script = read_json(ROOT / "examples" / "deepseek_v4_1_flash" / "script.json")
+    script = read_json(ROOT / "tests" / "fixtures" / "example_script.json")
     assert 55 <= len(script["title"]) <= 70
     assert 1100 <= word_count(" ".join(b["voice_text"] for b in script["blocks"])) <= 1500
     assert len(script["blocks"]) == 7
