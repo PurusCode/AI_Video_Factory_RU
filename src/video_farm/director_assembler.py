@@ -84,6 +84,8 @@ def assemble_director_video(settings: Any, beats: list[dict[str,Any]], audio_pat
         _render_segment(settings,beat,render_duration,seg)
         video_segments.append(seg)
         timeline.append({"scene_id":beat["scene_id"],"beat_id":beat["beat_id"],
+            "shot_id":beat.get("shot_id"),"source_beat_id":beat.get("source_beat_id"),
+            "cut_reason":beat.get("cut_reason"),
             "start_sec":round(expected,4),"voice_end_sec":round(expected+voice_duration,4),
             "end_sec":round(expected+duration,4),"audio_path":beat["audio_path"],
             "visual_path":beat["visual_path"],"visual_source":beat.get("source"),

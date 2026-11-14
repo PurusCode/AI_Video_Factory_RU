@@ -34,8 +34,10 @@ def write_json(path: str | Path, payload: Any) -> None:
             except FileNotFoundError:
                 pass
 
-def read_json(path: str | Path) -> Any:
-    return json.loads(Path(path).read_text(encoding="utf-8"))
+def read_json(path: Path | str) -> Any:
+    # utf-8-sig читает и файлы с BOM (PowerShell, некоторые редакторы),
+    # и без BOM — в отличие от "utf-8", который на BOM падает.
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
 
 def words(text: str) -> list[str]:
     return re.findall(r"[A-Za-zА-Яа-яЁё0-9]+(?:[.-][A-Za-zА-Яа-яЁё0-9]+)*", text or "")

@@ -21,6 +21,7 @@ from .text_normalization import normalize_for_speech
 from .kokoro_engine import synthesize_kokoro
 from .pixabay_media import fetch_pixabay, PixabayError
 from .director_shots import plan_shots
+from .director_motion import render_motion_graphic, _clean_labels
 
 log=logging.getLogger("video_farm.production_director")
 
@@ -30,18 +31,44 @@ voice_text. Не переписывай и не сокращай речь. Ра�
 ПОСЛЕДОВАТЕЛЬНЫХ ФРАГМЕНТА spoken_text. Склейка spoken_text в исходном порядке с обычными
 пробелами должна в точности сохранить исходную речь (все слова, пунктуацию и порядок).
 Это не субтитры и не пересказ: каждый spoken_text — точный непрерывный фрагмент оригинала.
-Каждому фрагменту назначь визуал, который показывает именно эту фразу. Так как Kokoro
+ЗВУК — ОСНОВНОЙ И САМОСТОЯТЕЛЬНЫЙ КАНАЛ ОБЪЯСНЕНИЯ:
+зритель должен понять тему, ход рассуждений, факты и выводы, даже если слушает ролик,
+не глядя на экран. Все важные сведения, выводы, цифры и причинно-следственные связи
+обязательно произносятся диктором. Изображение только дополняет и иллюстрирует речь;
+оно не должно быть единственным носителем существенной информации.
+ВИЗУАЛЬНАЯ РЕЖИССУРА:
+сначала сформулируй смысловую идею фрагмента, затем придумай кадр, который помогает
+понять эту идею. Не превращай последовательные слова диктора в отдельные карточки.
+Не копируй spoken_text в on_screen_text и не используй слова диктора как текст интерфейса,
+поисковый запрос, подписи к объектам или названия элементов схемы. Рендерер использует
+spoken_text только для озвучки; экранные подписи задаются отдельно и кратко.
+Делай минимальное количество речевых фрагментов: обычно один фрагмент на законченную мысль. Не дроби предложение на карточки отдельных слов. Один визуальный образ может сопровождать несколько соседних фраз, если мысль не изменилась.
+Меняй кадр при изменении идеи, действия или объекта объяснения, а не просто на границе WAV.
+
+Каждому фрагменту назначай визуал по смыслу целой мысли, а не по каждому слову или отдельной фразе. Так как Kokoro
 озвучивает каждый фрагмент отдельно, длительность визуала будет привязана к реальному WAV
 этого фрагмента, а не к придуманному проценту сцены.
 
 РАЗРЕШЁННЫЕ АДАПТЕРЫ — ТОЛЬКО ДВА:
 1) stock / pixabay: реальные фото или видеоматериалы. Для каждого stock beat дай 2–4
 конкретных английских search_queries, описывающих объект/действие в кадре.
+При выборе реального видеоряда активно рассматривай ФОТО Pixabay для предметов,
+людей, устройств, рабочих мест, документов и обстановки. Для реального действия
+(печатает, листает, нажимает, работает) предпочитай подходящее видео. Не своди stock
+только к видео: в содержательном ролике должны быть и релевантные фотографии, и видео,
+когда предмет материала позволяет подобрать их без натяжки. Для абстрактных процессов
+используй объясняющую графику. Не выбирай нерелевантный сток ради квоты.
 2) rendered / internal_renderer: локальная оригинальная графика. Поддерживаемые шаблоны:
 comparison (сравнение двух объектов), diagram/scheme (последовательность этапов), text
 (типографический акцент), illustration (смысловая графическая метафора), screencast
 (только явно маркированная учебная симуляция интерфейса), quote (короткая мысль), joke
 (визуальная шутка). Для реальных фото/видео используй только stock.
+ПРАВИЛО РЕАЛЬНОГО ВИДЕОРЯДА:
+- Для реальных физических действий (печатает, нажимает мышь, работает со смартфоном,
+  листает документы или работает за компьютером) сначала ищи соответствующий stock/video.
+- Для абстрактного механизма LLM, токенов и вероятностного выбора используй motion graphics.
+- Не выбирай нерелевантный сток ради разнообразия: соответствие речи важнее квоты.
+- Не показывай выдуманные проценты и числовые вероятности даже в симуляции.
 ВАЖНОЕ РАЗДЕЛЕНИЕ ПОЛЕЙ:
 - visual_description — внутренняя режиссёрская инструкция для программы. НИКОГДА не должна
   становиться надписью или заголовком в готовом кадре.
@@ -58,16 +85,92 @@ comparison (сравнение двух объектов), diagram/scheme (по�
 Экранные надписи по-русски, до 40 символов. Не вставляй английский учебный текст в русскую
 речь. Не придумывай измеренные проценты, количественные сравнения или источники. Если пример
 условный, явно пометь его условность. Не делай chart с фиктивными данными.
-Учитывай, что фактические SFX/музыкальные эффекты будут созданы локальным процедурным
-звуковым генератором на основе name/purpose/cue; не указывай URL и лицензии. claims — только
+Не генерируй музыкальные мелодии, тональные подложки или частые SFX. Музыка подключается отдельным реальным аудиофайлом на этапе сведения. Звук диктора всегда главный и должен оставаться разборчивым; эффекты допустимы только редкие и осмысленные. claims — только
 фактические утверждения из речи/визуала и URL-кандидаты, не подтверждённые факты.
 Для каждого beat укажи motion и при необходимости короткие SFX. Заполняй ВСЕ поля схемы:
 если claims нет — claims=[]; если cue нет — music_cue=""; для gen_prompt без промпта — null;
 для отсутствующих SFX и подписей — пустые списки. Верни по одному плану на каждый переданный
-scene_id и только для них."""
+scene_id и только для них.
+
+PHOTO_EDITORIAL_POLICY_ENGINE_2_3
+ПРИОРИТЕТ ФОТОГРАФИЙ И ВИДЕО — ОБЯЗАТЕЛЬНОЕ РЕЖИССЁРСКОЕ РЕШЕНИЕ:
+- Сначала определи, что именно зритель должен увидеть: реальный предмет/человека/место,
+  физическое действие или абстрактный процесс.
+- Для конкретного статичного реального объекта или обстановки (компьютер, смартфон,
+  серверная, рабочее место, документы, книги, человек за работой, офис) предпочитай
+  visual_type="photo", asset_strategy="stock", provider_id="pixabay". Фотография с
+  аккуратным медленным движением камеры лучше, чем декоративная локальная карточка.
+- Для действия, где важно само движение (печатает, листает, нажимает, собирает,
+  взаимодействует с устройством), выбирай visual_type="video" или "broll" и stock.
+- Для невидимого механизма, логической связи, токенизации или вероятностного выбора
+  используй rendered-графику, которая наглядно показывает изменение состояния.
+- Не подменяй фотографию абстрактной иллюстрацией только потому, что illustration
+  проще придумать. Если реальный объект materially помогает объяснить мысль, выбери фото.
+- В десятисценном пилоте стремись найти примерно 2–4 действительно уместные фотографии,
+  когда в материале есть подходящие реальные объекты/люди/места. Это редакционный ориентир,
+  а не квота: никогда не добавляй нерелевантную фотографию ради числа.
+- Для visual_type="photo" обязательно укажи asset_strategy="stock", provider_id="pixabay"
+  и 2–4 конкретных английских поисковых запроса с предметом и контекстом кадра.
+  Для visual_type="video"/"broll" также используй stock и запросы, описывающие действие.
+- Не считай экранную надпись или заголовок заменой фотографии, видеоматериала либо
+  объясняющей схемы. Не дроби одну мысль на несколько кадров только ради смены визуала.
+
+EDITORIAL_POLICY_ENGINE_2_4 — РЕАЛИЗМ, ДОСТОВЕРНОСТЬ И ЦЕЛЬНОСТЬ МЫСЛИ
+
+ПРИНЦИП «ОДНА МЫСЛЬ — ОДИН ОСНОВНОЙ ВИЗУАЛ»:
+- По умолчанию сопровождай одну законченную мысль одним beat и одним основным визуальным образом.
+- Не создавай отдельный beat для каждого существительного, пункта перечисления,
+  короткой фразы или части сложного предложения. Запятая, пауза и смена формулировки
+  сами по себе не являются причиной смены кадра.
+- Новый beat оправдан, когда действительно меняется предмет объяснения, действие,
+  причинно-следственный этап или визуальный аргумент. Несколько соседних фраз могут
+  оставаться под одним визуальным решением.
+
+ЗАПРЕТ ВЫДУМАННЫХ ИНТЕРФЕЙСОВ И ФАКТИЧЕСКИХ ДЕТАЛЕЙ:
+- Не создавай псевдоскриншоты браузера, поисковика, чата, мессенджера, терминала,
+  панели приложения, сайта, документа, письма, отчёта или страницы источника.
+- Не выдумывай названия авторов и организаций, даты, URL, цитаты, логотипы, версии
+  программ, названия кнопок, элементы интерфейса, результаты поиска, системные сообщения,
+  числа, метрики и другие детали, которые выглядят как реальные сведения.
+- Реалистичный интерфейс или документ допустим только при наличии точного подтверждённого
+  содержания в исходных материалах проекта. Одного упоминания темы в речи или поискового
+  запроса недостаточно, чтобы придумывать его содержимое.
+- Если речь об условном примере или гипотетической ситуации, не изображай выдуманный
+  экран или документ как настоящий. Используй нейтральный подходящий stock-кадр человека,
+  устройства или рабочего места либо ясную абстрактную схему. Стоковый кадр — иллюстрация
+  контекста, а не доказательство конкретного события, человека или результата.
+- Если точного визуального подтверждения нет, опусти спорную деталь. Не заполняй пробелы
+  правдоподобными выдумками.
+
+ЭКРАННЫЙ ТЕКСТ:
+- Используй on_screen_text только для короткой смысловой метки или ключевого термина,
+  который уже произнесён диктором либо дословно подтверждён материалами проекта.
+- Не переноси на экран всё предложение, абзац, перечисление или spoken_text целиком.
+  Не превращай каждый beat в титульную карточку и не делай из надписей субтитры.
+- Имена, даты, URL, числа, цитаты и названия продуктов показывай только в точном виде,
+  уже присутствующем в речи и подтверждённом источником. Иначе оставляй их за кадром.
+- Шаблон text используй как редкий типографический акцент, а не как замену содержательному
+  изображению или как способ показать пересказ диктора. Обычно достаточно одного короткого
+  термина или контрастной пары слов.
+
+СМЫСЛОВАЯ ГРАФИКА И STOCK:
+- Локальная графика оправдана, когда она наглядно раскрывает абстрактный механизм,
+  последовательность состояний, причинную связь или сравнение. Она не должна быть
+  декоративной заглушкой вместо подходящего фото/видео.
+- Для реальных предметов, людей, устройств, рабочих мест и физических действий сначала
+  рассматривай соответствующий stock Pixabay. Для условной ситуации выбирай нейтральный
+  контекстный кадр, не выдавая его за документальную запись описанного события.
+- Не используй случайную фотографию ради разнообразия и не подменяй ею объяснение.
+  Если кадр не помогает понять именно произносимую мысль, выбери другой визуал.
+- Не создавай графики, диаграммы, шкалы и числовые сравнения без реальных исходных данных.
+  Условная схема должна быть явно концептуальной и не имитировать реальные измерения.
+- Любые существенные факты и связи должны оставаться понятными на слух; визуал не
+  добавляет новой необходимой информации и не исправляет недостаток дикторского текста.
+"""
 
 CRITIC_SYSTEM="""Ты — независимый AI-редактор и технический режиссёр, не автор первоначального плана.
 Проверяй визуальное решение в сравнении с точным voice_text каждого фрагмента. Критерии:
+0) audio_independence: всю существенную информацию можно понять только на слух; никакой факт или вывод не спрятан исключительно в надписи, схеме или графике;
 1) relevance: кадр объясняет именно произносимую мысль;
 2) coverage: spoken_text фрагменты без пропусков, повторов, перестановок и переписывания;
 3) feasibility: только доступные Pixabay stock и локальный renderer; без обещаний эффектов,
@@ -80,14 +183,107 @@ CRITIC_SYSTEM="""Ты — независимый AI-редактор и техн
 Если есть существенная проблема, verdict=revise и revision_brief должен указывать конкретное
 исправление. relevance_score, feasibility_score и narration_coverage_score — целые оценки 0..5;
 factual_risk обязателен. Заполняй problems=[] и revision_brief="" при отсутствии замечаний.
-Проверяй ВСЕ сцены и возвращай ровно один review на каждый scene_id."""
+Проверяй ВСЕ сцены и возвращай ровно один review на каждый scene_id.
 
-REPAIR_SYSTEM="""Ты — режиссёр-исполнитель. Исправь планы только для переданных сцен по замечаниям
+PHOTO_SELECTION_REVIEW_ENGINE_2_3 — CONSISTENT EDITORIAL POLICY
+
+ВЫБОР ФОТО И ВИДЕО:
+- Фото подходит для реального статичного объекта, человека, рабочего места,
+  устройства, документа, страницы или места, когда этот образ помогает
+  понять речь.
+- Видео предпочитай, когда физическое движение само является важной частью
+  объяснения: печатает, нажимает, листает, ставит штамп и т.п.
+- Статичная фотография страницы 404 допустима. Не требуй видео только потому,
+  что сцена могла бы быть динамичнее или эмоциональнее.
+- Не требуй фото для абстрактного механизма, схемы или логической связи.
+- Если важны конкретные читаемые имена, даты, ссылки или элементы интерфейса,
+  локальная графика может быть лучше случайного стокового экрана с нечитаемым
+  текстом. Не требуй stock вместо rendered в таких случаях.
+- Не требуй сложных физических анимаций и VFX от локального renderer.
+- Не считай визуальное разнообразие самоцелью. Соответствие речи важнее.
+
+САМОСТОЯТЕЛЬНОСТЬ ДИКТОРСКОЙ ДОРОЖКИ:
+- Вся существенная информация должна быть произнесена диктором.
+- Если авторы, дата, ссылка или другой элемент уже названы в spoken_text,
+  их визуальное отображение допустимо и желательно как иллюстрация речи.
+- Короткая подпись, повторяющая уже произнесённое слово или смысл, сама по
+  себе не означает, что визуал заменяет аудио.
+- Блокируй только тогда, когда существенный факт, вывод или причинная связь
+  присутствует исключительно в изображении и отсутствует в речи.
+- Не трактуй визуальную иллюстрацию произнесённого факта как новый факт.
+
+БЛОКИРУЮЩИЕ ПРОБЛЕМЫ И РЕДАКТОРСКИЕ РЕКОМЕНДАЦИИ:
+- verdict="revise" используй только при существенном дефекте: искажена или
+  потеряна речь, визуал противоречит или явно не соответствует речи, способ
+  производства технически невыполним, визуал добавляет вводящий в заблуждение
+  непроизнесённый факт либо существует высокий фактический риск.
+- При блокирующей проблеме хотя бы одна из оценок relevance_score,
+  feasibility_score или narration_coverage_score должна быть ниже 4.
+- Если все три оценки 4..5 и factual_risk не high, замечание является
+  рекомендацией, а не основанием для остановки производства. Используй
+  verdict="accept". Рекомендацию можно сохранить в problems, но revision_brief
+  оставь пустым.
+- Не меняй verdict на revise только потому, что другой тип материала был бы
+  немного выразительнее или эстетически предпочтительнее.
+- Не меняй уже подходящее решение на противоположное без новой объективной
+  причины. Если фото подходит для статичной сцены, не требуй видео ради движения;
+  если точная графика лучше передаёт читаемый интерфейс, не требуй случайный сток.
+
+EDITORIAL_REVIEW_ENGINE_2_4 — ПРОВЕРКА ДОСТОВЕРНОСТИ И ЦЕЛЬНОСТИ
+
+Дополнительно проверь каждый кадр на выдуманные детали и ложное впечатление документальности:
+- Блокируй реалистичный псевдоинтерфейс, поисковую выдачу, чат, документ, письмо,
+  скриншот, цитату, имя, дату, URL, логотип, числовое значение или результат, если его
+  точное содержание не подтверждено исходными материалами проекта.
+- Блокируй визуал, который приписывает реальному человеку, компании или продукту действие,
+  интерфейс либо результат, не подтверждённые источниками. Не принимай правдоподобие
+  изображения за доказательство факта.
+- Нейтральный stock-кадр человека за компьютером или устройства допустим как иллюстрация
+  условной ситуации. Не требуй, чтобы он документально показывал описанное событие.
+- Если подпись добавляет новый факт, а не кратко обозначает уже произнесённую мысль,
+  это существенная проблема. Простое повторение ключевого произнесённого термина допустимо.
+- Проверяй, что text-карточка не заменяет содержательный визуал и не дублирует целое
+  предложение диктора. Короткая метка сама по себе не является нарушением.
+- Не требуй отдельного кадра на каждое предложение, слово или пункт перечисления.
+  Одна законченная мысль может оставаться под одним сильным визуальным решением.
+- Не считай универсальный stock-кадр новым фактическим утверждением, если он явно служит
+  только нейтральной иллюстрацией контекста и не изображает конкретное событие как факт.
+
+Существенную выдуманную фактическую деталь, ложную документальность или противоречие
+речи оценивай как блокирующую проблему. Эстетическое предпочтение другого кадра,
+небольшая повторяемость или допустимая типографическая метка — рекомендация, а не
+автоматическое основание для verdict="revise".
+"""
+
+REPAIR_SYSTEM="""Ты — режиссёр-исполнитель. Звук — самостоятельный и основной канал объяснения: все важные сведения должны быть произнесены диктором; визуал только дополняет речь и не копирует её. Исправь планы только для переданных сцен по замечаниям
 критика. Обязательно сохрани spoken_text как точные непрерывные фрагменты исходного voice_text,
 в полном объёме, в прежнем порядке. Не меняй смысл. Используй только stock/pixabay либо
 rendered/internal_renderer; никакого manual, screencast strategy или generated. Не добавляй
 непроверенных чисел, процентов и фактов. Русские экранные подписи короткие. Верни полный
-DirectorBatch для всех переданных сцен."""
+DirectorBatch для всех переданных сцен.
+
+PHOTO_SELECTION_REPAIR_ENGINE_2_3
+При исправлении визуального плана: реальные статичные объекты, устройства, люди,
+документы и места в первую очередь показывай фотографиями Pixabay (visual_type="photo",
+asset_strategy="stock", provider_id="pixabay"). Реальные действия показывай видео/broll.
+Абстрактные механизмы объясняй локальной графикой. Не добавляй случайный сток ради квоты.
+
+EDITORIAL_REPAIR_ENGINE_2_4 — НЕ ВЫДУМЫВАЙ И НЕ ДРОБИ БЕЗ ПРИЧИНЫ
+
+При исправлении плана соблюдай дополнительные ограничения:
+- Не создавай фиктивные интерфейсы сайтов, чатов, приложений, поисковиков, документов,
+  писем и терминалов. Не выдумывай читаемые имена, даты, URL, цитаты, логотипы, числа,
+  метрики, названия кнопок или результаты.
+- Для условной ситуации используй нейтральный соответствующий stock-кадр либо
+  концептуальную графику; не представляй постановочное изображение как доказательство
+  конкретного реального события.
+- Экранная подпись должна быть короткой и уже произнесённой/подтверждённой. Не копируй
+  на экран предложение диктора и не превращай план в набор текстовых карточек.
+- Сохраняй одну законченную мысль в одном beat, если нет реального изменения действия,
+  объекта объяснения или причинно-следственного этапа. Не дроби речь ради разнообразия.
+- Локальная графика должна объяснять механизм или связь, а не быть декоративной заглушкой
+  вместо подходящей фотографии или видеозаписи.
+"""
 
 def _norm(text: str) -> str:
     return re.sub(r"\s+"," ",str(text or "")).strip()
@@ -173,6 +369,28 @@ def _critic_settings(settings: Any) -> Any:
     clone=copy(settings); clone.providers=selected
     return clone
 
+def _is_blocking_review(review: dict[str, Any]) -> bool:
+    """Only material quality failures block production; preferences remain advisory."""
+    if str(review.get("factual_risk", "")).lower() == "high":
+        return True
+
+    score_keys = (
+        "relevance_score",
+        "feasibility_score",
+        "narration_coverage_score",
+    )
+    try:
+        scores = [int(review[key]) for key in score_keys]
+    except (KeyError, TypeError, ValueError):
+        # Fail closed when a critic response is incomplete or malformed.
+        return True
+
+    if any(score < 0 or score > 5 for score in scores):
+        return True
+
+    return min(scores) < 4
+
+
 def _critique(settings: Any, scenes: list[dict[str,Any]], plans: list[dict[str,Any]]) -> dict[str,Any]:
     by_id={p["scene_id"]:p for p in plans}
     payload=[]
@@ -241,39 +459,108 @@ def _validate_pixabay_asset(settings: Any, asset: dict[str,Any], kind: str) -> t
         return False,f"video_probe_failed_{type(exc).__name__}"
 
 def _asset_for_beat(settings: Any, scene: dict[str,Any], beat: dict[str,Any],
-                    visuals_dir: Path, warnings: list[str], index: int) -> dict[str,Any]:
-    strategy=beat["asset_strategy"]
-    if strategy=="stock":
-        kind="video" if beat["visual_type"] in ("broll","video") else "photo"
-        for query in beat.get("search_queries",[])[:3]:
+                    visuals_dir: Path, warnings: list[str], index: int,
+                    duration: float) -> dict[str,Any]:
+    strategy = str(beat.get("asset_strategy") or "").lower()
+    if strategy == "stock":
+        requested_kind = "video" if beat.get("visual_type") in ("broll", "video") else "photo"
+        queries = beat.get("search_queries", [])[:4]
+        local_errors: list[str] = []
+        rate_limited = False
+        asset = None
+
+        try:
+            asset = fetch_pixabay(settings, queries, requested_kind, visuals_dir)
+        except PixabayError as exc:
+            local_errors.append(str(exc))
+            warnings.append(f"{scene['id']}: Pixabay {requested_kind}: {exc}")
+            rate_limited = exc.is_rate_limited
+
+        # A suitable still image is an acceptable editorial substitute for unavailable
+        # motion footage, but never continue querying Pixabay after a 429 response.
+        if asset is None and requested_kind == "video" and not rate_limited:
             try:
-                asset=fetch_pixabay(settings,query,kind,visuals_dir)
+                asset = fetch_pixabay(settings, queries, "photo", visuals_dir)
+                if asset:
+                    asset.update({
+                        "requested_media_type": "video",
+                        "selection_fallback": "video_to_photo",
+                        "fallback_reason": "no_usable_video_candidate",
+                    })
             except PixabayError as exc:
-                warnings.append(f"{scene['id']}: Pixabay {query!r}: {exc}"); asset=None
-            if asset:
-                valid,check_note=_validate_pixabay_asset(settings,asset,kind)
-                if not valid:
-                    warnings.append(f"{scene['id']}: Pixabay asset rejected ({check_note}); trying next query")
-                    continue
-                p=Path(asset["path"])
-                asset.update({"sha256":hashlib.sha256(p.read_bytes()).hexdigest(),"query":query,
-                              "asset_check":check_note})
-                if beat.get("on_screen_text"):
-                    overlay=render_stock_overlay(beat["on_screen_text"],visuals_dir/f"{scene['id']}_{index:02d}_overlay.png")
-                    asset["overlay_path"]=str(overlay.resolve())
+                local_errors.append(str(exc))
+                warnings.append(f"{scene['id']}: Pixabay photo fallback: {exc}")
+                rate_limited = exc.is_rate_limited
+
+        if asset is not None:
+            actual_kind = "video" if asset.get("media_type") == "video" else "photo"
+            valid, check_note = _validate_pixabay_asset(settings, asset, actual_kind)
+            if valid:
+                path = Path(asset["path"])
+                asset.update({
+                    "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                    "asset_check": check_note,
+                    "visible_text": _clean_labels(beat),
+                    "requested_media_type": asset.get("requested_media_type", requested_kind),
+                })
+                screen_text = asset["visible_text"]
+                if screen_text:
+                    overlay = render_stock_overlay(
+                        screen_text, visuals_dir / f"{scene['id']}_{index:02d}_overlay.png"
+                    )
+                    asset["overlay_path"] = str(overlay.resolve())
                 return asset
-        warnings.append(f"{scene['id']}: Pixabay не дал подходящий материал; fallback=internal_renderer")
-    # Unsupported operator/generative strategies are impossible at schema level; stock fallback also lands here.
-    image=render_beat_visual(scene,beat,visuals_dir/f"{scene['id']}_{index:02d}_rendered.png")
-    meta_path=image.with_suffix(image.suffix+".meta.json")
-    meta={}
+            local_errors.append(f"selected asset rejected: {check_note}")
+            warnings.append(f"{scene['id']}: Pixabay asset rejected ({check_note})")
+
+        failure_path = visuals_dir / f"{scene['id']}_{index:02d}_asset_failure.json"
+        failure_path.parent.mkdir(parents=True, exist_ok=True)
+        failure = {
+            "status": "manual_review_required",
+            "scene_id": scene["id"],
+            "beat_index": index,
+            "requested_media_type": requested_kind,
+            "search_queries": queries,
+            "rate_limited": rate_limited,
+            "errors": local_errors,
+            "policy": "stock assets are never silently replaced by local motion graphics",
+        }
+        failure_path.write_text(json.dumps(failure, ensure_ascii=False, indent=2), encoding="utf-8")
+        raise RuntimeError(
+            f"{scene['id']}/b{index:02d}: подходящий стоковый материал не получен; "
+            f"локальная графика не подставлена. Отчёт: {failure_path}"
+        )
+
+    if strategy != "rendered":
+        raise ValueError(f"{scene['id']}/b{index:02d}: unsupported asset_strategy={strategy!r}")
+
+    # The local renderer is only allowed when the director explicitly selected rendered.
+    clip = render_motion_graphic(
+        settings, scene, beat,
+        visuals_dir / f"{scene['id']}_{index:02d}_motion.mp4", duration,
+    )
+    meta_path = clip.with_suffix(clip.suffix + ".meta.json")
+    meta = {}
     if meta_path.is_file():
-        try: meta=json.loads(meta_path.read_text(encoding="utf-8"))
-        except (OSError,json.JSONDecodeError): meta={}
-    return {"path":str(image.resolve()),"media_type":"image","source":"AI Video Factory local renderer",
-            "source_url":None,"creator":"Project renderer","license_name":"Project original graphics",
-            "rights_status":"project_generated","sha256":hashlib.sha256(image.read_bytes()).hexdigest(),
-            "template_id":meta.get("template_id"),"visual_family":meta.get("visual_family")}
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            meta = {}
+    return {
+        "path": str(clip.resolve()),
+        "media_type": "video",
+        "source": "AI Video Factory local renderer",
+        "source_url": None,
+        "creator": "Project renderer",
+        "license_name": "Project original graphics",
+        "rights_status": "project_generated",
+        "sha256": hashlib.sha256(clip.read_bytes()).hexdigest(),
+        "template_id": meta.get("template_id"),
+        "visual_family": meta.get("visual_family"),
+        "visible_text": meta.get("visible_text", []),
+        "requested_media_type": "rendered",
+    }
+
 
 def _wav_duration(path: Path) -> float:
     with wave.open(str(path),"rb") as wf:
@@ -307,18 +594,27 @@ def _produce(settings: Any, scenes: list[dict[str,Any]], plans: list[dict[str,An
         if not row: raise RuntimeError(f"Kokoro manifest missing {block_id}")
         wav=audio_dir/row["file"]
         duration=_wav_duration(wav)
-        asset=_asset_for_beat(settings,scene,beat,visuals_dir,warnings,bi)
+        asset=_asset_for_beat(settings,scene,beat,visuals_dir,warnings,bi,duration)
         beats.append({"scene_id":scene["id"],"beat_id":f"b{bi:02d}",
+            "shot_id":beat.get("shot_id"),"source_beat_id":beat.get("source_beat_id"),
+            "cut_reason":beat.get("cut_reason"),
             "spoken_text":beat["spoken_text"],"audio_path":str(wav.resolve()),
             "audio_duration_sec":duration,"visual_path":asset["path"],
             "media_type":asset["media_type"],"overlay_path":asset.get("overlay_path"),
             "source":asset.get("source"),"source_url":asset.get("source_url"),
             "creator":asset.get("creator"),"license_name":asset.get("license_name"),
-            "sha256":asset.get("sha256"),"asset_check":asset.get("asset_check","local_renderer_png_created"),
+            "sha256":asset.get("sha256"),"asset_check":asset.get("asset_check","motion_graphics_video_created"),
+            "asset_query":asset.get("query"),"candidate_count":asset.get("candidate_count"),
+            "selected_tags":asset.get("selected_tags"),"selected_resolution":asset.get("selected_resolution"),
+            "pixabay_type":asset.get("pixabay_type"),"rights_status":asset.get("rights_status"),
+            "requested_media_type":asset.get("requested_media_type"),
+            "selection_fallback":asset.get("selection_fallback"),
+            "fallback_reason":asset.get("fallback_reason"),
             "duration_ratio":None,"motion":beat.get("motion","static"),
             "transition_in":beat.get("transition_in","cut"),
             "audio_sfx":[x.model_dump(mode="json") if hasattr(x,"model_dump") else x for x in beat.get("audio_sfx",[])],
             "music_cue":plan.get("music_cue","") ,"on_screen_text":beat.get("on_screen_text",[]),
+            "visible_text":asset.get("visible_text",beat.get("on_screen_text",[])),
             "visual_type":beat.get("visual_type"),"visual_description":beat.get("visual_description"),
             "template_id":asset.get("template_id"),"visual_family":asset.get("visual_family"),
             "overlay_path":asset.get("overlay_path"),
@@ -367,10 +663,24 @@ def _post_qc(settings: Any, beats: list[dict[str,Any]], source_audit: dict[str,A
     _atomic_json(out_path,report)
     return report
 
+def _summarize_media_mix(beats: list[dict[str,Any]]) -> dict[str,int]:
+    """Count actual media origins; local MP4 graphics are not Pixabay videos."""
+    photos=sum(1 for beat in beats if beat.get("source")=="Pixabay" and beat.get("media_type")=="image")
+    videos=sum(1 for beat in beats if beat.get("source")=="Pixabay" and beat.get("media_type")=="video")
+    local=sum(1 for beat in beats if beat.get("source")=="AI Video Factory local renderer")
+    known=photos+videos+local
+    return {"total_assets":len(beats),"pixabay_photos":photos,"pixabay_videos":videos,
+            "local_motion_graphics":local,"other_assets":len(beats)-known}
+
+
 def run_pipeline(*, script_path: Path|None, storyboard_path: Path|None, out_dir: Path,
                  scene_limit: int|None=10, batch_size: int=2, speed: float=0.9,
-                 revision_rounds: int=2, settings: Any|None=None) -> dict[str,Any]:
+                 revision_rounds: int=2, settings: Any|None=None,
+                 music_path: Path|None=None,
+                 music_metadata: dict[str,Any]|None=None) -> dict[str,Any]:
     settings=settings or load_settings()
+    if music_path is not None and not Path(music_path).is_file():
+        raise FileNotFoundError(f"Музыкальный файл не найден: {music_path}")
     if (script_path is None)==(storyboard_path is None):
         raise ValueError("Specify exactly one of script_path or storyboard_path")
     if not 1<=batch_size<=4: raise ValueError("batch_size must be 1..4")
@@ -410,15 +720,21 @@ def run_pipeline(*, script_path: Path|None, storyboard_path: Path|None, out_dir:
         critique=_critique(settings,scenes,plans)
         review_history.append({"round":round_no,"critique":critique})
         _atomic_json(out_dir/f"director_critique_round_{round_no+1}.json",critique)
-        bad=[x for x in critique["reviews"] if x["verdict"]=="revise" or x["factual_risk"]=="high" or
-             min(x["relevance_score"],x["feasibility_score"],x["narration_coverage_score"])<3]
+        bad=[x for x in critique["reviews"] if _is_blocking_review(x)]
         if not bad or round_no==revision_rounds: break
         plans=_repair(settings,scenes,plans,critique)
         _atomic_json(plan_path,{"plans":plans,"repaired":True,"round":round_no+1})
-    unresolved=[x for x in critique["reviews"] if x["verdict"]=="revise" or x["factual_risk"]=="high" or
-        min(x["relevance_score"],x["feasibility_score"],x["narration_coverage_score"])<3]
+    unresolved=[x for x in critique["reviews"] if _is_blocking_review(x)]
+    recommendations=[
+        x for x in critique["reviews"]
+        if not _is_blocking_review(x)
+        and (x.get("verdict")=="revise" or x.get("problems") or x.get("revision_brief"))
+    ]
     _atomic_json(out_dir/"director_review.json",{"history":review_history,
-        "unresolved":unresolved,"status":"blocked" if unresolved else "accepted",
+        "unresolved":unresolved,"recommendations":recommendations,
+        "status":"blocked" if unresolved else (
+            "accepted_with_recommendations" if recommendations else "accepted"
+        ),
         "human_review_required":True})
     if unresolved:
         raise RuntimeError(f"AI critic still reports {len(unresolved)} unresolved scene(s); no production started. See director_review.json")
@@ -434,7 +750,8 @@ def run_pipeline(*, script_path: Path|None, storyboard_path: Path|None, out_dir:
     production["visual_asset_audit_status"]=asset_audit["status"]
     production["visual_asset_audit_errors"]=asset_audit["errors"]
     production["visual_asset_audit_warnings"]=asset_audit["warnings"]
-    audio_report=build_master_audio(beats,out_dir/"production"/"audio_master.wav")
+    audio_report=build_master_audio(beats,out_dir/"production"/"audio_master.wav",
+        music_path=music_path,music_metadata=music_metadata,ffmpeg=settings.ffmpeg)
     # Align each visual to the measured speech fragment WAV, then add the same planned pause.
     assembly=assemble_director_video(settings,beats,Path(audio_report["path"]),
         out_dir/"final.mp4",out_dir/"production"/"assembly",pause_seconds=0.12)
@@ -459,19 +776,25 @@ def run_pipeline(*, script_path: Path|None, storyboard_path: Path|None, out_dir:
     beat_slots=audio_report.get("timeline",[])
     timeline_beats=[]
     for b,slot in zip(beats,beat_slots):
-        timeline_beats.append({**{k:b.get(k) for k in ("scene_id","beat_id","spoken_text","audio_path","audio_duration_sec","visual_path","media_type","source","source_url","creator","license_name","sha256","motion","transition_in","visual_type","template_id","visual_family")},
+        timeline_beats.append({**{k:b.get(k) for k in ("scene_id","beat_id","spoken_text","audio_path","audio_duration_sec","visual_path","media_type","source","source_url","creator","license_name","sha256","motion","transition_in","visual_type","template_id","visual_family","on_screen_text","visible_text","visual_description","asset_query","candidate_count","selected_tags","selected_resolution","pixabay_type","rights_status","requested_media_type","selection_fallback","fallback_reason")},
                                "start_sec":slot["start_sec"],"voice_end_sec":slot["voice_end_sec"],"end_sec":slot["end_sec"]})
     _atomic_json(out_dir/"production_timeline.json",{"audio":audio_report,"beats":timeline_beats})
+    media_mix=_summarize_media_mix(beats)
+    production["media_mix"]=media_mix
     media_manifest={"status":"complete","asset_count":len(beats),
+        "summary":media_mix,
         "assets":[{"scene_id":b["scene_id"],"beat_id":b["beat_id"],"path":b["visual_path"],
             "media_type":b["media_type"],"source":b["source"],"source_url":b.get("source_url"),
             "creator":b.get("creator"),"license_name":b.get("license_name"),
             "rights_status":"review_required" if b.get("source_url") else "project_generated",
             "sha256":b.get("sha256"),"asset_check":b.get("asset_check"),
+            "asset_query":b.get("asset_query"),"candidate_count":b.get("candidate_count"),
+            "selected_tags":b.get("selected_tags"),"selected_resolution":b.get("selected_resolution"),
+            "pixabay_type":b.get("pixabay_type"),"rights_status":b.get("rights_status"),
             "visual_type":b.get("visual_type"),"template_id":b.get("template_id"),
-            "visual_family":b.get("visual_family")} for b in beats],
+            "visual_family":b.get("visual_family"),"visible_text":b.get("visible_text",[])} for b in beats],
         "audio_manifest":production.get("audio_manifest"),
-        "audio_master":audio_report["path"],
+        "audio_master":audio_report["path"],"music_track":audio_report.get("music_track"),
         "note":"Pixabay attribution and rights must be reviewed before publication."}
     _atomic_json(out_dir/"media_manifest.json",media_manifest)
     report={"status":"complete" if not qc["errors"] else "failed",
@@ -496,14 +819,23 @@ def main(argv: list[str]|None=None)->int:
     parser.add_argument("--batch-size",type=int,default=2)
     parser.add_argument("--speed",type=float,default=0.9)
     parser.add_argument("--revision-rounds",type=int,default=2)
+    parser.add_argument("--music",type=Path,help="MP3/WAV/OGG background music file; optional")
+    parser.add_argument("--music-title",default=None,help="Track title for the media manifest")
+    parser.add_argument("--music-creator",default=None,help="Track author/creator for the media manifest")
+    parser.add_argument("--music-license",default=None,help="Exact license name, e.g. Pixabay Content License")
+    parser.add_argument("--music-source-url",default=None,help="Original music page URL")
+    parser.add_argument("--music-source",default=None,help="Source platform, e.g. Pixabay or Mixkit")
     parser.add_argument("--verbose",action="store_true")
     args=parser.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",datefmt="%H:%M:%S")
     try:
         report=run_pipeline(script_path=args.script,storyboard_path=args.storyboard,
-            out_dir=args.out,scene_limit=args.scene_limit,batch_size=args.batch_size,
-            speed=args.speed,revision_rounds=args.revision_rounds)
+           out_dir=args.out,scene_limit=args.scene_limit,batch_size=args.batch_size,
+           speed=args.speed,revision_rounds=args.revision_rounds,music_path=args.music,
+           music_metadata={"title":args.music_title,"creator":args.music_creator,
+                           "license":args.music_license,"source_url":args.music_source_url,
+                           "source":args.music_source})
         print(json.dumps(report,ensure_ascii=False,indent=2))
         return 0 if report["status"]=="complete" else 2
     except Exception:

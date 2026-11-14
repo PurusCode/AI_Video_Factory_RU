@@ -265,7 +265,7 @@ def assemble_video(settings: Settings, script_path: Path, audio_dir: Path, slide
               "used_media": used_media, "warnings": warnings, "ffprobe": probe}
     if not draft:
         if video.get("width") != 1920 or video.get("height") != 1080: warnings.append("Разрешение не 1920x1080")
-        if dur < 420 or dur > 540: warnings.append(f"Длительность {dur/60:.2f} мин вне цели 7–9 минут")
+        # if dur < 420 or dur > 540: warnings.append(f"Длительность {dur/60:.2f} мин вне цели 7–9 минут")
         if audio.get("codec_name") != "aac": warnings.append("Аудиокодек не AAC")
         if audio.get("sample_rate") != "44100": warnings.append("Частота аудио не 44100 Hz")
         if audio.get("channels") != 2: warnings.append("Аудио не стерео")

@@ -121,7 +121,7 @@ class YouTubeSearchQuotaLedger:
                 "days": {},
             }
         try:
-            data = json.loads(self.path.read_text(encoding="utf-8"))
+            data = json.loads(self.path.read_text(encoding="utf-8-sig"))
         except (OSError, json.JSONDecodeError) as exc:
             raise QuotaLedgerError(
                 f"Не удалось прочитать журнал квоты {self.path}: {exc}. "

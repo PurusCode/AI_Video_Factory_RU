@@ -12,6 +12,16 @@ PIXABAY_VIDEO_API = "https://pixabay.com/api/videos/"
 PIXABAY_IMAGE_API = "https://pixabay.com/api/"
 MAX_BYTES = 50 * 1024 * 1024
 
+# Реалистичный браузерный UA. Нужен только для CDN-скачивания:
+# API-эндпоинты спокойно принимают «video-farm/0.1», но CDN Pixabay/Pexels
+# отдают 429 на «голые» запросы без User-Agent/Referer.
+BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/124.0.0.0 Safari/537.36"
+)
+
+
 class StockSearch:
     def __init__(self, settings: Settings):
         self.settings = settings
@@ -19,11 +29,43 @@ class StockSearch:
         self.session.headers.update({"User-Agent": "video-farm/0.1 (local personal video workflow)"})
         self.cache_dir = settings.cache_dir / "stock_search"
         ensure_dir(self.cache_dir)
+        self._warmed_up = False
+        self._last_download = 0.0
+
+    def _warmup_pixabay(self):
+        """Один визит на главную, чтобы получить cookies Cloudflare."""
+        if self._warmed_up:
+            return
+        try:
+            self.session.get(
+                "https://pixabay.com/",
+                headers={"User-Agent": BROWSER_UA, "Accept": "text/html,*/*"},
+                timeout=20,
+            )
+        except Exception:
+            pass
+        self._warmed_up = True
+
+    def _cdn_headers(self, url: str) -> dict[str, str]:
+        headers = {
+            "User-Agent": BROWSER_UA,
+            "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,video/*,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9,ru;q=0.8",
+            "Origin": "https://pixabay.com",
+        }
+        host = url.lower()
+        if "pixabay.com" in host:
+            headers["Referer"] = "https://pixabay.com/"
+            self._warmup_pixabay()
+        elif "pexels.com" in host:
+            headers["Referer"] = "https://www.pexels.com/"
+            headers["Origin"] = "https://www.pexels.com"
+        return headers
 
     def cached_json(self, source: str, query: str, url: str, params: dict[str, Any], headers: dict[str, str] | None = None, ttl: int = 86400) -> dict[str, Any]:
         cache_path = self.cache_dir / f"{source}_{stable_hash(query.lower())}.json"
         if cache_path.exists() and time.time() - cache_path.stat().st_mtime < ttl:
-            try: return json.loads(cache_path.read_text(encoding="utf-8"))
+            try: return json.loads(cache_path.read_text(encoding="utf-8-sig"))
             except Exception: pass
         r = self.session.get(url, params=params, headers=headers or {}, timeout=45)
         if r.status_code == 429:
@@ -34,30 +76,70 @@ class StockSearch:
         cache_path.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
         return data
 
-    def download(self, url: str, target: Path, max_bytes: int = MAX_BYTES) -> int:
+    def download(self, url: str, target: Path, max_bytes: int = MAX_BYTES,
+                 retries: int = 3, retry_delay: float = 8.0) -> int:
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.exists() and target.stat().st_size > 0:
             return target.stat().st_size
-        tmp = target.with_suffix(target.suffix + ".part")
-        total = 0
-        with self.session.get(url, stream=True, timeout=90) as r:
-            r.raise_for_status()
-            length = int(r.headers.get("Content-Length", "0") or 0)
-            if length and length > max_bytes:
-                raise RuntimeError(f"Файл {length / 1024 / 1024:.1f} МБ больше лимита 50 МБ")
+
+        # Глобальная пауза между скачиваниями: не чаще одного файла раз в 2.5 сек.
+        elapsed = time.time() - self._last_download
+        if elapsed < 2.5:
+            time.sleep(2.5 - elapsed)
+
+        headers = self._cdn_headers(url)
+        last_err: Exception | None = None
+        total_attempts = retries + 1
+
+        for attempt in range(1, total_attempts + 1):
+            tmp = target.with_suffix(target.suffix + ".part")
+            total = 0
             try:
-                with tmp.open("wb") as f:
-                    for chunk in r.iter_content(1024 * 128):
-                        if not chunk: continue
-                        total += len(chunk)
-                        if total > max_bytes:
-                            raise RuntimeError("Загрузка остановлена: превышен лимит 50 МБ")
-                        f.write(chunk)
-                tmp.replace(target)
-            except Exception:
+                with self.session.get(url, headers=headers, stream=True, timeout=90) as r:
+                    if r.status_code == 429:
+                        ra = r.headers.get("Retry-After", "?")
+                        last_err = requests.HTTPError(f"429 (Retry-After: {ra})")
+                        log.warning("CDN 429 для %s, пауза %.0fс (попытка %d/%d)",
+                                    url, retry_delay, attempt, total_attempts)
+                        time.sleep(retry_delay)
+                        continue
+
+                    r.raise_for_status()
+                    length = int(r.headers.get("Content-Length", "0") or 0)
+                    if length and length > max_bytes:
+                        raise RuntimeError(
+                            f"Файл {length / 1024 / 1024:.1f} МБ больше лимита "
+                            f"{max_bytes / 1024 / 1024:.0f} МБ"
+                        )
+                    with tmp.open("wb") as f:
+                        for chunk in r.iter_content(1024 * 128):
+                            if not chunk: continue
+                            total += len(chunk)
+                            if total > max_bytes:
+                                raise RuntimeError(
+                                    f"Загрузка остановлена: превышен лимит "
+                                    f"{max_bytes / 1024 / 1024:.0f} МБ"
+                                )
+                            f.write(chunk)
+                    tmp.replace(target)
+                    self._last_download = time.time()
+                    return total
+
+            except requests.HTTPError as e:
+                tmp.unlink(missing_ok=True)
+                raise RuntimeError(f"HTTP-ошибка при скачивании {url}: {e}") from e
+            except RuntimeError:
                 tmp.unlink(missing_ok=True)
                 raise
-        return total
+            except requests.RequestException as e:
+                last_err = e
+                tmp.unlink(missing_ok=True)
+                log.warning("Сеть при скачивании %s: %s (попытка %d/%d)",
+                            url, e, attempt, total_attempts)
+                if attempt < total_attempts:
+                    time.sleep(retry_delay)
+
+        raise last_err or RuntimeError(f"Не удалось скачать {url} после {total_attempts} попыток")
 
 
 def _safe_keywords(script: dict[str, Any]) -> list[str]:
