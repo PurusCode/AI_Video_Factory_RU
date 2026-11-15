@@ -755,9 +755,33 @@ def run_pipeline(*, script_path: Path|None, storyboard_path: Path|None, out_dir:
     # Align each visual to the measured speech fragment WAV, then add the same planned pause.
     assembly=assemble_director_video(settings,beats,Path(audio_report["path"]),
         out_dir/"final.mp4",out_dir/"production"/"assembly",pause_seconds=0.12)
+    # Enrich the assembled timeline with provenance from the exact produced beat.
+    # The assembler owns the real edit timing; the beat owns asset/source metadata.
+    beat_by_key = {
+        (str(beat.get("scene_id")), str(beat.get("beat_id"))): beat
+        for beat in beats
+    }
+    audit_timeline = []
+    for slot in assembly.get("timeline", []):
+        evidence_slot = dict(slot)
+        beat = beat_by_key.get(
+            (str(slot.get("scene_id")), str(slot.get("beat_id")))
+        )
+        if beat is not None:
+            evidence_slot.update({
+                "visual_path": beat.get("visual_path"),
+                "source": beat.get("source"),
+                "source_url": beat.get("source_url"),
+                "creator": beat.get("creator"),
+                "license_name": beat.get("license_name"),
+                "rights_status": beat.get("rights_status"),
+                "sha256": beat.get("sha256"),
+            })
+        audit_timeline.append(evidence_slot)
+
     final_visual_audit=audit_final_video_frames(
-        out_dir/"final.mp4",assembly.get("timeline",[]),out_dir/"visual_audit.json",
-        out_dir/"visual_contact_sheet.jpg",ffmpeg=settings.ffmpeg)
+        out_dir/"final.mp4",audit_timeline,out_dir/"visual_audit.json",
+        out_dir/"visual_contact_sheet.jpg",ffmpeg=settings.ffmpeg,sample_count=3)
     visual_errors=asset_audit.get("errors",[])+final_visual_audit.get("errors",[])
     visual_warnings=asset_audit.get("warnings",[])+final_visual_audit.get("warnings",[])
     visual_audit={
@@ -776,7 +800,7 @@ def run_pipeline(*, script_path: Path|None, storyboard_path: Path|None, out_dir:
     beat_slots=audio_report.get("timeline",[])
     timeline_beats=[]
     for b,slot in zip(beats,beat_slots):
-        timeline_beats.append({**{k:b.get(k) for k in ("scene_id","beat_id","spoken_text","audio_path","audio_duration_sec","visual_path","media_type","source","source_url","creator","license_name","sha256","motion","transition_in","visual_type","template_id","visual_family","on_screen_text","visible_text","visual_description","asset_query","candidate_count","selected_tags","selected_resolution","pixabay_type","rights_status","requested_media_type","selection_fallback","fallback_reason")},
+        timeline_beats.append({**{k:b.get(k) for k in ("scene_id","beat_id","shot_id","source_beat_id","cut_reason","spoken_text","audio_path","audio_duration_sec","visual_path","media_type","source","source_url","creator","license_name","sha256","asset_check","motion","transition_in","visual_type","template_id","visual_family","on_screen_text","visible_text","visual_description","asset_query","candidate_count","selected_tags","selected_resolution","pixabay_type","rights_status","requested_media_type","selection_fallback","fallback_reason")},
                                "start_sec":slot["start_sec"],"voice_end_sec":slot["voice_end_sec"],"end_sec":slot["end_sec"]})
     _atomic_json(out_dir/"production_timeline.json",{"audio":audio_report,"beats":timeline_beats})
     media_mix=_summarize_media_mix(beats)

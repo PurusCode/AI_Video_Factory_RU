@@ -655,101 +655,316 @@ def audit_visual_assets(beats: list[dict[str, Any]], output_path: Path,
     return report
 
 
-def audit_final_video_frames(video_path: Path, timeline: list[dict[str, Any]],
-                             output_path: Path, contact_sheet_path: Path,
-                             ffmpeg: str = "ffmpeg") -> dict[str, Any]:
-    """Extract and inspect representative frames from the actual assembled MP4.
 
-    The generated contact sheet is based on final.mp4, not source stills, so stock
-    overlays, crop, motion, encoding and timeline mistakes are visible to reviewers.
+def _sample_times_for_slot(
+    slot: dict[str, Any], sample_count: int
+) -> list[tuple[float, float]]:
+    """Return unique timestamps strictly inside the spoken interval.
+
+    The editorial pause after voice_end_sec is deliberately excluded.
+    A one-frame sample is taken at the midpoint; three samples are taken at
+    25%, 50%, and 75% of the actual spoken interval.
+    """
+    if isinstance(sample_count, bool) or not isinstance(sample_count, int):
+        raise ValueError("sample_count must be an integer")
+    if not 1 <= sample_count <= 7:
+        raise ValueError("sample_count must be between 1 and 7")
+
+    start = max(0.0, float(slot.get("start_sec", 0.0)))
+    voice_end = max(
+        start,
+        float(slot.get("voice_end_sec", slot.get("end_sec", start))),
+    )
+    duration = voice_end - start
+
+    if duration <= 0:
+        raise ValueError("spoken interval must have positive duration")
+
+    positions = (
+        [0.5]
+        if sample_count == 1
+        else [(index + 1) / (sample_count + 1) for index in range(sample_count)]
+    )
+
+    # Keep samples away from exact cut boundaries. For very short intervals,
+    # reduce the margin proportionally instead of moving outside the interval.
+    margin = min(0.001, duration / 4.0)
+    lower = start + margin
+    upper = voice_end - margin
+
+    result: list[tuple[float, float]] = []
+    seen_milliseconds: set[int] = set()
+
+    for position in positions:
+        timestamp = start + duration * position
+        timestamp = min(upper, max(lower, timestamp))
+        millisecond_key = round(timestamp * 1000)
+
+        # Very short WAV fragments can map multiple samples to the same
+        # millisecond. Do not pretend these are independent observations.
+        if millisecond_key in seen_milliseconds:
+            continue
+
+        seen_milliseconds.add(millisecond_key)
+        actual_position = (timestamp - start) / duration
+        result.append((timestamp, actual_position))
+
+    return result
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source_file:
+        for chunk in iter(lambda: source_file.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def audit_final_video_frames(
+    video_path: Path,
+    timeline: list[dict[str, Any]],
+    output_path: Path,
+    contact_sheet_path: Path,
+    ffmpeg: str = "ffmpeg",
+    sample_count: int = 1,
+) -> dict[str, Any]:
+    """Extract frame evidence from the encoded final MP4.
+
+    This is deterministic evidence collection and technical QC, not semantic
+    proof that the imagery matches the narration. sample_count defaults to 1
+    for compatibility with older callers. Engine 2.5 production requests 3.
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     contact_sheet_path.parent.mkdir(parents=True, exist_ok=True)
+
     frame_dir = output_path.parent / "_final_video_frames"
     frame_dir.mkdir(parents=True, exist_ok=True)
+
     entries: list[dict[str, Any]] = []
     errors: list[str] = []
     warnings: list[str] = []
-    seen: list[tuple[str, int]] = []
-    for index, slot in enumerate(timeline, 1):
-        start = max(0.0, float(slot.get("start_sec", 0.0)))
-        end = max(start, float(slot.get("end_sec", start)))
-        duration = max(0.0, end - start)
-        sample_time = start + min(0.45, max(0.08, duration * 0.4))
-        frame_path = frame_dir / f"frame_{index:04d}.jpg"
-        entry = {
-            "scene_id": slot.get("scene_id"), "beat_id": slot.get("beat_id"),
-            "sample_time_sec": round(sample_time, 4), "spoken_text": slot.get("spoken_text", ""),
-            "frame_path": str(frame_path.resolve()), "status": "passed",
-        }
-        if not video_path.is_file():
-            entry["status"] = "failed"
-            errors.append("Final MP4 is missing; cannot extract representative frames")
-            entries.append(entry)
-            break
-        try:
-            subprocess.run(
-                [ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-ss", f"{sample_time:.4f}",
-                 "-i", str(video_path), "-frames:v", "1", "-q:v", "2", str(frame_path)],
-                capture_output=True, check=True,
-            )
-            with Image.open(frame_path) as frame:
-                frame.verify()
-            with Image.open(frame_path) as frame:
-                if frame.width < 640 or frame.height < 360:
-                    entry["status"] = "failed"
-                    errors.append(f"{entry['scene_id']}/{entry['beat_id']}: final MP4 frame below 640x360")
-                else:
-                    entry["dimensions"] = [frame.width, frame.height]
-                    phash = _dhash(frame)
-                    entry["dhash"] = f"{phash:016x}"
-                    for previous_id, previous_hash in seen:
-                        distance = _hamming(phash, previous_hash)
-                        if distance <= 1:
-                            entry["duplicate_of"] = previous_id
-                            entry["duplicate_distance"] = distance
-                            warnings.append(f"Final frame {entry['scene_id']}/{entry['beat_id']} is near-duplicate of {previous_id}")
-                            break
-                    seen.append((f"{entry['scene_id']}/{entry['beat_id']}", phash))
-        except (OSError, subprocess.CalledProcessError, ValueError) as exc:
-            entry["status"] = "failed"
-            errors.append(f"{entry['scene_id']}/{entry['beat_id']}: failed to extract/decode final frame: {exc}")
-        entries.append(entry)
 
-    thumb_w, thumb_h, label_h = 640, 360, 88
+    # Compare samples between different shots only. Repeated frames inside
+    # one static shot are expected and must not be reported as editorial reuse.
+    seen: list[tuple[str, tuple[str, str, str], int]] = []
+
+    video_sha256 = _sha256_file(video_path) if video_path.is_file() else None
+    if video_sha256 is None:
+        errors.append("Final MP4 is missing; cannot extract frame evidence")
+
+    for slot_index, slot in enumerate(timeline, 1):
+        scene_id = slot.get("scene_id")
+        beat_id = slot.get("beat_id")
+
+        try:
+            samples = _sample_times_for_slot(slot, sample_count)
+        except (TypeError, ValueError) as exc:
+            errors.append(f"{scene_id}/{beat_id}: invalid spoken interval or sample policy: {exc}")
+            continue
+
+        shot_key = (
+            str(scene_id or ""),
+            str(beat_id or ""),
+            str(slot.get("shot_id") or ""),
+        )
+
+        for sample_index, (sample_time, sample_position) in enumerate(samples, 1):
+            frame_path = frame_dir / f"frame_{slot_index:04d}_{sample_index:02d}.jpg"
+
+            entry = {
+                "scene_id": scene_id,
+                "beat_id": beat_id,
+                "shot_id": slot.get("shot_id"),
+                "source_beat_id": slot.get("source_beat_id"),
+                "cut_reason": slot.get("cut_reason"),
+                "sample_index": sample_index,
+                "sample_count": len(samples),
+                "sample_position": round(sample_position, 4),
+                "sample_time_sec": round(sample_time, 4),
+                "spoken_start_sec": slot.get("start_sec"),
+                "spoken_end_sec": slot.get("voice_end_sec", slot.get("end_sec")),
+                "spoken_text": slot.get("spoken_text", ""),
+                "visual_path": slot.get("visual_path"),
+                "visual_source": slot.get("visual_source", slot.get("source")),
+                "source_url": slot.get("source_url"),
+                "creator": slot.get("creator"),
+                "license_name": slot.get("license_name"),
+                "rights_status": slot.get("rights_status"),
+                "asset_sha256": slot.get("sha256"),
+                "video_sha256": video_sha256,
+                "frame_path": str(frame_path.resolve()),
+                "status": "passed",
+            }
+
+            if video_sha256 is None:
+                entry["status"] = "failed"
+                entries.append(entry)
+                continue
+
+            try:
+                subprocess.run(
+                    [
+                        ffmpeg,
+                        "-y",
+                        "-hide_banner",
+                        "-loglevel",
+                        "error",
+                        "-ss",
+                        f"{sample_time:.4f}",
+                        "-i",
+                        str(video_path),
+                        "-frames:v",
+                        "1",
+                        "-q:v",
+                        "2",
+                        str(frame_path),
+                    ],
+                    capture_output=True,
+                    check=True,
+                )
+
+                with Image.open(frame_path) as frame:
+                    frame.verify()
+
+                with Image.open(frame_path) as frame:
+                    if frame.width < 640 or frame.height < 360:
+                        entry["status"] = "failed"
+                        errors.append(
+                            f"{scene_id}/{beat_id}: final MP4 frame below 640x360"
+                        )
+                    else:
+                        entry["dimensions"] = [frame.width, frame.height]
+                        entry["sha256"] = _sha256_file(frame_path)
+
+                        phash = _dhash(frame)
+                        entry["dhash"] = f"{phash:016x}"
+
+                        for previous_id, previous_shot_key, previous_hash in seen:
+                            if previous_shot_key == shot_key:
+                                continue
+
+                            distance = _hamming(phash, previous_hash)
+                            if distance <= 1:
+                                entry["duplicate_of"] = previous_id
+                                entry["duplicate_distance"] = distance
+                                warnings.append(
+                                    f"Final frame {scene_id}/{beat_id} sample "
+                                    f"{sample_index} is near-duplicate of {previous_id}"
+                                )
+                                break
+
+                        sample_id = f"{scene_id}/{beat_id}#{sample_index}"
+                        seen.append((sample_id, shot_key, phash))
+
+            except (OSError, subprocess.CalledProcessError, ValueError) as exc:
+                entry["status"] = "failed"
+                errors.append(
+                    f"{scene_id}/{beat_id} sample {sample_index}: "
+                    f"failed to extract/decode final frame: {exc}"
+                )
+
+            entries.append(entry)
+
+    thumb_w, thumb_h, label_h = 640, 360, 104
     cols = 2
     rows = max(1, (len(entries) + cols - 1) // cols)
-    sheet = Image.new("RGB", (cols * thumb_w, rows * (thumb_h + label_h)), (9, 14, 24))
+
+    sheet = Image.new(
+        "RGB",
+        (cols * thumb_w, rows * (thumb_h + label_h)),
+        (9, 14, 24),
+    )
     draw = ImageDraw.Draw(sheet)
-    for i, entry in enumerate(entries):
+
+    for index, entry in enumerate(entries):
         frame_path = Path(entry["frame_path"])
-        x0, y0 = (i % cols) * thumb_w, (i // cols) * (thumb_h + label_h)
+        x0 = (index % cols) * thumb_w
+        y0 = (index // cols) * (thumb_h + label_h)
+
         try:
             with Image.open(frame_path) as source:
                 image = source.convert("RGB")
                 image.thumbnail((thumb_w, thumb_h), Image.Resampling.LANCZOS)
-            sheet.paste(image, (x0 + (thumb_w-image.width)//2, y0 + (thumb_h-image.height)//2))
+            sheet.paste(
+                image,
+                (
+                    x0 + (thumb_w - image.width) // 2,
+                    y0 + (thumb_h - image.height) // 2,
+                ),
+            )
         except OSError:
-            draw.rectangle((x0, y0, x0+thumb_w, y0+thumb_h), fill=(63, 28, 37))
-            draw.text((x0+20, y0+150), "FRAME EXTRACTION FAILED", font=_font(22, True), fill=WHITE)
-        label = f"{entry['scene_id']} / {entry['beat_id']} · {entry['sample_time_sec']:.2f}s"
-        draw.text((x0+16, y0+thumb_h+7), label[:84], font=_font(20, True), fill=CYAN)
-        draw.text((x0+16, y0+thumb_h+38), str(entry.get("spoken_text", ""))[:82], font=_font(16), fill=WHITE)
+            draw.rectangle(
+                (x0, y0, x0 + thumb_w, y0 + thumb_h),
+                fill=(63, 28, 37),
+            )
+            draw.text(
+                (x0 + 20, y0 + 150),
+                "FRAME EXTRACTION FAILED",
+                font=_font(22, True),
+                fill=WHITE,
+            )
+
+        label = (
+            f"{entry['scene_id']} / {entry['beat_id']} · "
+            f"{entry['sample_time_sec']:.2f}s · "
+            f"{entry['sample_index']}/{entry['sample_count']}"
+        )
+        draw.text(
+            (x0 + 16, y0 + thumb_h + 7),
+            label[:88],
+            font=_font(20, True),
+            fill=CYAN,
+        )
+        draw.text(
+            (x0 + 16, y0 + thumb_h + 38),
+            str(entry.get("spoken_text", ""))[:82],
+            font=_font(16),
+            fill=WHITE,
+        )
+        draw.text(
+            (x0 + 16, y0 + thumb_h + 65),
+            f"shot={entry.get('shot_id') or 'n/a'}",
+            font=_font(14),
+            fill=MUTED,
+        )
+
     sheet.save(contact_sheet_path, format="JPEG", quality=90)
 
+    # Semantic verification is deliberately reported separately from the
+    # technical extraction status. A technically clean audit may pass while
+    # semantic_verdict remains "not_run" and human_review_required stays true.
+
+    decoded_count = sum(1 for entry in entries if entry.get("dimensions"))
     report = {
+        "schema_version": "2.5-frame-evidence",
         "status": "failed" if errors else ("passed_with_warnings" if warnings else "passed"),
-        "video": str(video_path.resolve()), "sampled_frame_count": len(entries),
-        "decoded_frame_count": sum(1 for x in entries if x.get("dimensions")),
-        "errors": errors, "warnings": warnings, "entries": entries,
+        "video": str(video_path.resolve()),
+        "video_sha256": video_sha256,
+        "sample_policy": {
+            "samples_per_spoken_interval": sample_count,
+            "positions": [0.25, 0.5, 0.75] if sample_count == 3 else None,
+            "interval": "start_sec..voice_end_sec; excludes editorial pause",
+        },
+        "sampled_frame_count": len(entries),
+        "decoded_frame_count": decoded_count,
+        "errors": errors,
+        "warnings": warnings,
+        "entries": entries,
         "contact_sheet": str(contact_sheet_path.resolve()),
         "semantic_frame_to_speech": "human_review_required",
-        "note": "Frames are extracted from the encoded final MP4; image similarity is not semantic validation.",
+        "semantic_verdict": "not_run",
+        "human_review_required": True,
+        "note": (
+            "Frames are extracted from encoded final.mp4. SHA-256 hashes establish "
+            "evidence identity, not semantic correctness or rights clearance."
+        ),
     }
-    output_path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    output_path.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
     return report
-
-
 def create_contact_sheet(items: list[dict[str, Any]], output_path: Path,
                          ffmpeg: str = "ffmpeg") -> Path:
     """Create a review sheet with a frame and its exact spoken phrase."""
